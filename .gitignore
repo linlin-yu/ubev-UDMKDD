@@ -1,6 +1,7 @@
 .idea
 .ipynb_checkpoints
 .ruff_cache
+**/__pycache__/
 
 nuscenes
 venv
