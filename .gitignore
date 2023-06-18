@@ -1,0 +1,6 @@
+.idea
+.ipynb_checkpoints
+.ruff_cache
+
+nuscenes
+venv
