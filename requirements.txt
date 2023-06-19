@@ -1,0 +1,15 @@
+diffusers
+efficientnet_pytorch
+einops
+numpy
+opencv_python
+Pillow
+pyquaternion
+PyYAML
+scikit_learn
+Shapely
+tensorboardX
+torch==1.13.1
+torchvision
+tqdm
+xformers

@@ -6,3 +6,6 @@ __pycache__/
 
 nuscenes
 venv
+
+*.npy
+*.pt

@@ -25,8 +25,6 @@ def get_loader_info(model, loader):
         for images, intrinsics, extrinsics, labels in tqdm(loader):
             outs = model(images, intrinsics, extrinsics)
 
-            print(torch.mean(outs))
-
             predictions.append(model.activate(outs).detach().cpu())
             ground_truth.append(labels)
             aleatoric.append(model.aleatoric(outs).detach().cpu())
@@ -128,7 +126,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("config")
-    parser.add_argument('-g', '--gpus', nargs='+', required=False)
+    parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False)
     parser.add_argument('-b', '--batch_size', required=False)
     parser.add_argument('-s', '--split', default="trainval", required=False)

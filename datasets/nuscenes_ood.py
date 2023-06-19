@@ -1,16 +1,24 @@
-
 from nuscenes.utils.geometry_utils import (box_in_image,
                                            view_points)
 
 from datasets.nuscenes import *
 from tools.geometry import *
 
+from diffusers import StableDiffusionInpaintPipeline
+from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
+
 
 class NuScenesDatasetOOD(NuScenesDataset):
     def __init__(self, *args, **kwargs):
         super(NuScenesDatasetOOD, self).__init__(*args, **kwargs)
 
-        print("Anomaly")
+        # pipe = StableDiffusionInpaintPipeline.from_pretrained(
+        #     "stabilityai/stable-diffusion-2-inpainting",
+        #     torch_dtype=torch.float16,
+        # )
+        
+        # pipe.enable_xformers_memory_efficient_attention(attention_op=MemoryEfficientAttentionFlashAttentionOp)
+        # pipe.vae.enable_xformers_memory_efficient_attention(attention_op=None)
 
     def __getitem__(self, index):
         rec = self.ixes[index]
