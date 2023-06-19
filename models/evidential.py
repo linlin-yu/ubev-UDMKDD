@@ -1,5 +1,6 @@
 from models.model import Model
 from tools.uncertainty import *
+from tools.loss import *
 
 import torch.distributions as D
 
@@ -22,16 +23,13 @@ class Evidential(Model):
     def activate(alpha):
         return alpha / torch.sum(alpha, dim=1, keepdim=True)
 
-    def loss(self, alpha, y, entropy=True, entropy_reg=.0001):
-        S = torch.sum(alpha, dim=1, keepdim=True)
+    def loss(self, alpha, y, entropy_lambda=.0001):
+        A = uce_loss(alpha, y, self.weights)
 
-        A = torch.sum(y * (torch.digamma(S) - torch.digamma(alpha) + 1e-10) * self.weights, dim=1, keepdim=True)
+        if entropy_lambda > 0:
+            A += entropy_reg(alpha)
 
-        if entropy:
-            b = alpha.view(-1, 4, 200*200)
-            A += D.Dirichlet(b).entropy() * entropy_reg
-
-        return A.mean()
+        return A
 
     def forward(self, images, intrinsics, extrinsics, limit=None):
         evidence = self.backbone(images, intrinsics, extrinsics).relu()

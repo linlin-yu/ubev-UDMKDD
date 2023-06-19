@@ -121,15 +121,13 @@ def train():
 
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument("config")
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
-    parser.add_argument('-l', '--logdir', required=False)
-    parser.add_argument('-b', '--batch_size', required=False)
-    parser.add_argument('-s', '--split', default="trainval", required=False)
+    parser.add_argument('-l', '--logdir', required=False, type=str)
+    parser.add_argument('-b', '--batch_size', required=False, type=int)
+    parser.add_argument('-s', '--split', default="mini", required=False, type=str)
 
     args = parser.parse_args()
 
