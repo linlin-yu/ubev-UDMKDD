@@ -1,7 +1,7 @@
 type: 'baseline'
-backbone: 'fiery'
+backbone: 'cvt'
 dataset: 'nuscenes'
-logdir: 'nuscenes/fiery_baseline'
+logdir: 'nuscenes/cvt_baseline'
 gpus: [7]
 batch_size: 32
 num_workers: 32

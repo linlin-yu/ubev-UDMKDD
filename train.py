@@ -1,6 +1,5 @@
 from time import time
 
-import yaml
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -46,8 +45,7 @@ def train():
     n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 
     train_loader, val_loader = compile_data(
-        split,
-        DATAROOT,
+        split, DATAROOT,
         batch_size=config['batch_size'],
         num_workers=config['num_workers']
     )
@@ -55,7 +53,8 @@ def train():
     model = models[config['type']](
         config['gpus'],
         backbone=config['backbone'],
-        n_classes=n_classes
+        n_classes=n_classes,
+        loss_type=config['loss']
     )
 
     model.opt = torch.optim.Adam(
@@ -127,12 +126,15 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gpus', nargs='+', required=False, type=int)
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
-    parser.add_argument('-s', '--split', default="mini", required=False, type=str)
+    parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
 
     args = parser.parse_args()
 
     print(f"Using config {args.config}")
     config = get_config(args)
+
+    if config['backbone'] == 'cvt':
+        torch.backends.cudnn.enabled = False
 
     split = args.split
     DATAROOT = "../data/nuscenes"

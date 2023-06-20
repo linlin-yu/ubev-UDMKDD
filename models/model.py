@@ -14,7 +14,7 @@ backbones = {
 
 class Model(nn.Module):
 
-    def __init__(self, devices, backbone='fiery', n_classes=4, opt=None):
+    def __init__(self, devices, backbone='fiery', n_classes=4, opt=None, loss_type='focal'):
         super(Model, self).__init__()
 
         self.device = devices[0]
@@ -25,6 +25,7 @@ class Model(nn.Module):
                                         output_device=devices[0],
                                         device_ids=devices)
 
+        self.loss_type = loss_type
         self.opt = opt
 
     @staticmethod

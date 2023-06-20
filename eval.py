@@ -11,13 +11,17 @@ def eval():
     n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 
     train_loader, val_loader = compile_data(
-        split,
-        DATAROOT,
+        split, DATAROOT,
         batch_size=config['batch_size'],
         num_workers=config['num_workers']
     )
 
-    model = models[config['type']](config['gpus'], n_classes=n_classes)
+    model = models[config['type']](
+        config['gpus'],
+        backbone=config['backbone'],
+        n_classes=n_classes
+    )
+
     model.load(torch.load(config['pretrained']))
 
     print("--------------------------------------------------")

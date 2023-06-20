@@ -1,5 +1,6 @@
 from models.model import Model
 from tools.uncertainty import *
+from tools.loss import *
 
 
 class Baseline(Model):
@@ -19,8 +20,12 @@ class Baseline(Model):
         return torch.softmax(logits, dim=1)
 
     def loss(self, logits, target):
-        return torch.nn.functional.cross_entropy(logits, target,
-                                                 weight=self.weights)
+        if self.loss_type == 'ce':
+            return ce_loss(logits, target, weights=self.weights).mean()
+        elif self.loss_type == 'focal':
+            return focal_loss(logits, target, weights=self.weights).mean()
+        else:
+            raise NotImplementedError()
 
     def forward(self, images, intrinsics, extrinsics):
         return self.backbone(images, intrinsics, extrinsics)
