@@ -126,7 +126,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
             intrinsic = torch.Tensor(sensor_sample['camera_intrinsic'])
             sensor_rotation = Quaternion(sensor_sample['rotation'])
             sensor_translation = np.array(sensor_sample['translation'])[:, None]
-
             car_egopose_to_sensor = np.vstack([
                 np.hstack((sensor_rotation.rotation_matrix, sensor_translation)),
                 np.array([0, 0, 0, 1])])

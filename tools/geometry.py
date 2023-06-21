@@ -1,11 +1,32 @@
 from PIL import Image
 import torch
+import numpy as np
 
 
 def resize_and_crop_image(img, resize_dims, crop):
     img = img.resize(resize_dims, resample=Image.BILINEAR)
     img = img.crop(crop)
     return img
+
+
+def mask(img, target):
+    m = np.all(img == target, axis=2).astype(int)
+    return m
+
+
+def inverse_extrinsics(E):
+    R = E[0:3, 0:3]
+    T = E[0:3, 3].reshape(3, 1)
+
+    R_inv = np.transpose(R)
+
+    T_inv = -np.dot(R_inv, T)
+
+    E_inv = np.identity(4)
+    E_inv[0:3, 0:3] = R_inv
+    E_inv[0:3, 3] = T_inv[:, 0]
+
+    return E_inv
 
 
 def update_intrinsics(intrinsics, top_crop=0.0, left_crop=0.0, scale_width=1.0, scale_height=1.0):

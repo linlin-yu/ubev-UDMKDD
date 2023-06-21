@@ -4,15 +4,6 @@ from models.backbones.cvt.decoder import *
 from models.backbones.cvt.encoder import *
 
 
-def convert(intrins):
-    intrins[:, :, 0, 0] *= W / 1600
-    intrins[:, :, 0, 2] *= W / 1600
-    intrins[:, :, 1, 1] *= (H + O) / 900
-    intrins[:, :, 1, 2] *= (H + O) / 900
-    intrins[:, :, 1, 2] -= O
-    return intrins
-
-
 class Shrink(nn.Module):
     def __init__(self):
         super(Shrink, self).__init__()
