@@ -1,7 +1,7 @@
 type: 'baseline'
-backbone: 'cvt'
+backbone: 'lss'
 dataset: 'nuscenes'
-logdir: 'outputs/nuscenes/cvt_baseline'
+logdir: 'outputs/nuscenes/lss_baseline'
 gpus: [7]
 batch_size: 32
 num_workers: 32

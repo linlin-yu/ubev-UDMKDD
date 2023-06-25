@@ -10,6 +10,7 @@ from nuscenes.utils.data_classes import Box
 from nuscenes.utils.splits import create_splits_scenes
 from PIL import Image
 from pyquaternion import Quaternion
+
 from shapely.errors import ShapelyDeprecationWarning
 import numpy as np
 
@@ -98,47 +99,27 @@ class NuScenesDataset(torch.utils.data.Dataset):
         intrinsics = []
         extrinsics = []
 
-        lidar_sample = self.nusc.get('sample_data', rec['data']['LIDAR_TOP'])
-        lidar_pose = self.nusc.get('ego_pose', lidar_sample['ego_pose_token'])
-
-        yaw = Quaternion(lidar_pose['rotation']).yaw_pitch_roll[0]
-
-        lidar_rotation = Quaternion(scalar=np.cos(yaw / 2), vector=[0, 0, np.sin(yaw / 2)])
-        lidar_translation = np.array(lidar_pose['translation'])[:, None]
-        lidar_to_world = np.vstack([
-            np.hstack((lidar_rotation.rotation_matrix, lidar_translation)),
-            np.array([0, 0, 0, 1])
-        ])
-
         for cam in self.cameras:
             camera_sample = self.nusc.get('sample_data', rec['data'][cam])
 
-            car_egopose = self.nusc.get('ego_pose', camera_sample['ego_pose_token'])
-            egopose_rotation = Quaternion(car_egopose['rotation']).inverse
-            egopose_translation = -np.array(car_egopose['translation'])[:, None]
-
-            world_to_car_egopose = np.vstack([
-                np.hstack((egopose_rotation.rotation_matrix, egopose_rotation.rotation_matrix @ egopose_translation)),
-                np.array([0, 0, 0, 1])
-            ])
-
             sensor_sample = self.nusc.get('calibrated_sensor', camera_sample['calibrated_sensor_token'])
             intrinsic = torch.Tensor(sensor_sample['camera_intrinsic'])
-            sensor_rotation = Quaternion(sensor_sample['rotation'])
-            sensor_translation = np.array(sensor_sample['translation'])[:, None]
-            car_egopose_to_sensor = np.vstack([
-                np.hstack((sensor_rotation.rotation_matrix, sensor_translation)),
-                np.array([0, 0, 0, 1])])
-            car_egopose_to_sensor = np.linalg.inv(car_egopose_to_sensor)
 
-            lidar_to_sensor = car_egopose_to_sensor @ world_to_car_egopose @ lidar_to_world
-            sensor_to_lidar = torch.from_numpy(np.linalg.inv(lidar_to_sensor)).float()
+            q = sensor_sample['rotation']
+
+            adjust_yaw = Rotation.from_euler('z', [180], degrees=True)
+            sensor_rotation = Rotation.from_quat([q[1], q[2], q[3], q[0]]).inv() * adjust_yaw
+
+            sensor_translation = np.array(sensor_sample['translation'])
+
+            extrinsic = np.eye(4, dtype=np.float32)
+            extrinsic[:3, :3] = sensor_rotation.as_matrix()
+            extrinsic[:3, 3] = sensor_translation
+            extrinsic = np.linalg.inv(extrinsic)
 
             image = Image.open(os.path.join(self.dataroot, camera_sample['filename']))
-
             image = resize_and_crop_image(image, resize_dims=self.augmentation_parameters['resize_dims'],
                                           crop=self.augmentation_parameters['crop'])
-
             normalized_image = self.to_tensor(image)
 
             top_crop = self.augmentation_parameters['crop'][1]
@@ -152,7 +133,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             images.append(normalized_image)
             intrinsics.append(intrinsic)
-            extrinsics.append(sensor_to_lidar)
+            extrinsics.append(torch.tensor(extrinsic))
 
         images, intrinsics, extrinsics = (torch.stack(images, dim=0),
                                           torch.stack(intrinsics, dim=0),
@@ -198,8 +179,10 @@ class NuScenesDataset(torch.utils.data.Dataset):
         empty[lane == 1] = 0
 
         labels = np.stack((vehicles, road, lane, empty))
+        # labels = np.stack((vehicles, empty + road + lane))
+        labels = np.flip(labels, axis=(1, 2))
 
-        return labels
+        return torch.tensor(labels.copy())
 
     def get_region(self, instance_annotation, ego_translation, ego_rotation):
         box = Box(instance_annotation['translation'], instance_annotation['size'],
@@ -258,7 +241,18 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16):
     train_data = NuScenesDataset(nusc, True)
     val_data = NuScenesDataset(nusc, False)
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(
+        train_data,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=True
+    )
+
+    val_loader = torch.utils.data.DataLoader(
+        val_data,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=True
+    )
 
     return train_loader, val_loader

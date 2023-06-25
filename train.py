@@ -3,7 +3,9 @@ from time import time
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-from datasets.nuscenes import compile_data
+from datasets.nuscenes import compile_data as compile_data_nuscenes
+from datasets.carla import compile_data as compile_data_carla
+
 from models.baseline import Baseline
 from models.evidential import Evidential
 from tools.utils import *
@@ -21,7 +23,7 @@ def get_loader_info(model, loader):
     epistemic = []
 
     with torch.no_grad():
-        for images, intrinsics, extrinsics, labels in tqdm(loader):
+        for images, intrinsics, extrinsics, labels in tqdm(loader, desc="Running validation"):
             outs = model(images, intrinsics, extrinsics)
 
             predictions.append(model.activate(outs).detach().cpu())
@@ -40,11 +42,16 @@ models = {
     'evidential': Evidential
 }
 
+datasets = {
+    'nuscenes': compile_data_nuscenes,
+    'carla': compile_data_carla
+}
+
 
 def train():
     n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 
-    train_loader, val_loader = compile_data(
+    train_loader, val_loader = datasets[config['dataset']](
         split, DATAROOT,
         batch_size=config['batch_size'],
         num_workers=config['num_workers']
@@ -69,6 +76,7 @@ def train():
     print(f"Val loader: {len(val_loader.dataset)}")
     print(f"Batch size: {config['batch_size']}")
     print(f"Output directory: {config['logdir']} ")
+    print(f"Using loss {config['loss']}")
     print("--------------------------------------------------")
 
     writer = SummaryWriter(logdir=config['logdir'])
@@ -127,6 +135,7 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
     parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
+    parser.add_argument('--loss', default="ce", required=False, type=str)
 
     args = parser.parse_args()
 
@@ -137,6 +146,10 @@ if __name__ == "__main__":
         torch.backends.cudnn.enabled = False
 
     split = args.split
-    DATAROOT = "../data/nuscenes"
+
+    if config['dataset'] == 'carla':
+        DATAROOT = "../data/carla"
+    else:
+        DATAROOT = "../data/nuscenes"
 
     train()

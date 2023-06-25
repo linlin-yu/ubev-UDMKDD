@@ -10,7 +10,7 @@ torch.manual_seed(0)
 def eval():
     n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 
-    train_loader, val_loader = compile_data(
+    train_loader, val_loader = datasets[config['dataset']](
         split, DATAROOT,
         batch_size=config['batch_size'],
         num_workers=config['num_workers']

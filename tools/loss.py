@@ -2,6 +2,7 @@ import torch
 
 import torch.distributions as D
 import torch.nn.functional as F
+from torch import nn
 
 
 def ce_loss(logits, target, weights=None):
@@ -9,12 +10,17 @@ def ce_loss(logits, target, weights=None):
 
 
 def focal_loss(logits, target, weights=None, n=2):
-    ce = ce_loss(logits, target, weights=weights)
-    probs = torch.exp(-ce)
+    target = target.argmax(dim=1)
+    log_p = F.log_softmax(logits, dim=1)
 
-    focal = ((1 - probs) ** n * ce).unsqueeze(1)
+    ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
+    print(ce.mean())
+    log_pt = log_p.gather(1, target[None])
 
-    return focal
+    pt = log_pt.exp()
+    loss = (1 - pt) ** n * ce
+
+    return loss
 
 
 def uce_loss(alpha, y, weights=None):
@@ -30,21 +36,28 @@ def uce_loss(alpha, y, weights=None):
 
 
 def u_focal_loss(alpha, y, weights=None, n=2):
-    S = torch.sum(alpha, dim=1, keepdim=True)
+    uce = uce_loss(alpha, y, weights=weights)
+    p = alpha / torch.sum(alpha, dim=1, keepdim=True)
+    pt = p.gather(1, y.argmax(dim=1)[None])
 
-    a0 = S
-    aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
+    loss = (1 - pt) ** n * uce
+    return loss
 
-    print(torch.mean(alpha))
 
-    B = y * (gamma(a0 - aj + n) * gamma(a0) / (gamma(a0 + n) * gamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
-
-    if weights is not None:
-        B *= weights.view(1, -1, 1, 1)
-
-    A = torch.sum(B, dim=1, keepdim=True)
-
-    return A
+# def u_focal_loss(alpha, y, weights=None, n=2):
+#     S = torch.sum(alpha, dim=1, keepdim=True)
+#
+#     a0 = S
+#     aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
+#
+#     B = y * (gamma(a0 - aj + n) * gamma(a0) / (gamma(a0 + n) * gamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
+#
+#     if weights is not None:
+#         B *= weights.view(1, -1, 1, 1)
+#
+#     A = torch.sum(B, dim=1, keepdim=True)
+#
+#     return A
 
 
 def entropy_reg(alpha, beta_reg=.0005):

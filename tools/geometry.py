@@ -1,6 +1,23 @@
 from PIL import Image
+import cv2
 import torch
 import numpy as np
+from scipy.spatial import ConvexHull
+
+from pyquaternion import Quaternion
+from nuscenes.utils.data_classes import Box
+
+from scipy.spatial.transform import Rotation
+
+
+def euler_to_quaternion(yaw, pitch, roll):
+    yaw, pitch, roll = np.radians(yaw),  np.radians(pitch),  np.radians(roll)
+    qx = np.sin(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) - np.cos(roll / 2) * np.sin(pitch / 2) * np.sin(yaw / 2)
+    qy = np.cos(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2)
+    qz = np.cos(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2) - np.sin(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2)
+    qw = np.cos(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.sin(pitch / 2) * np.sin(yaw / 2)
+
+    return [qx, qy, qz, qw]
 
 
 def resize_and_crop_image(img, resize_dims, crop):
@@ -12,21 +29,6 @@ def resize_and_crop_image(img, resize_dims, crop):
 def mask(img, target):
     m = np.all(img == target, axis=2).astype(int)
     return m
-
-
-def inverse_extrinsics(E):
-    R = E[0:3, 0:3]
-    T = E[0:3, 3].reshape(3, 1)
-
-    R_inv = np.transpose(R)
-
-    T_inv = -np.dot(R_inv, T)
-
-    E_inv = np.identity(4)
-    E_inv[0:3, 0:3] = R_inv
-    E_inv[0:3, 3] = T_inv[:, 0]
-
-    return E_inv
 
 
 def update_intrinsics(intrinsics, top_crop=0.0, left_crop=0.0, scale_width=1.0, scale_height=1.0):
@@ -80,3 +82,84 @@ def bounding_box(points):
     x_coordinates, y_coordinates = zip(*points)
 
     return min(x_coordinates), min(y_coordinates), max(x_coordinates), max(y_coordinates)
+
+
+def fill_convex_hull(image, points, fill_value=1.0):
+
+    hull = ConvexHull(points)
+    hull_points = points[hull.vertices]
+
+    pts = np.array(hull_points, 'int32')
+    pts = pts.reshape((-1, 1, 2))
+
+    cv2.fillPoly(image, [pts], fill_value)
+
+
+def render_bev(box, bev, bev_start_position, bev_resolution):
+    pts = box.bottom_corners()[:2].T
+    pts = np.round((pts - bev_start_position[:2] + bev_resolution[:2] / 2.0)
+                   / bev_resolution[:2]).astype(np.int32)
+
+    pts[:, [1, 0]] = pts[:, [0, 1]]
+    cv2.fillPoly(bev, [pts], 1.0)
+
+
+def get_image_points(locations, K, w2c):
+    num_points = locations.shape[0]
+    points = np.hstack((locations, np.ones((num_points, 1))))
+
+    points_camera = np.dot(points, w2c.T)
+    points_camera = points_camera[:, [1, 2, 0]]
+    points_camera[:, 1] *= -1
+
+    points_img = np.dot(points_camera, K.T)
+
+    points_img[:, 0] /= points_img[:, 2]
+    points_img[:, 1] /= points_img[:, 2]
+
+    return points_img[:, 0:2]
+
+
+def render_ood(
+        translation,
+        rotation,
+        size,
+        intrinsic,
+        extrinsic,
+        camera,
+        bev_resolution,
+        bev_start_position,
+        image_size=(224, 480),
+        bev_size=(200, 200),
+        type='carla'
+):
+    extrinsic = extrinsic.copy()
+    bev_ood = np.zeros(bev_size)
+    cam_ood = np.zeros(image_size)
+
+    box = Box(translation, size, Quaternion(rotation))
+    render_bev(box, bev_ood, bev_start_position, bev_resolution)
+
+    corners = box.corners().T
+
+    if type == 'carla':
+        adjust_roll = Rotation.from_euler('x', [-90], degrees=True)
+        adjust_yaw = Rotation.from_euler('z', [90], degrees=True)
+
+        e = Rotation.from_matrix(extrinsic[:3, :3])
+        extrinsic[:3, :3] = (adjust_roll * e * adjust_yaw).as_matrix()
+    else:
+        adjust_roll = Rotation.from_euler('x', [90], degrees=True)
+        adjust_yaw = Rotation.from_euler('z', [90], degrees=True)
+
+        e = Rotation.from_matrix(extrinsic[:3, :3])
+        extrinsic[:3, :3] = (adjust_roll * e * adjust_yaw).as_matrix()
+
+    r = Rotation.from_matrix(extrinsic[:3, :3])
+
+    print(r.as_euler("zyx", degrees=True))
+
+    corners = get_image_points(corners, intrinsic, extrinsic)
+    fill_convex_hull(cam_ood, corners)
+
+    return bev_ood, cam_ood

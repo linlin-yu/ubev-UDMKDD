@@ -88,6 +88,7 @@ class Fiery(nn.Module):
 
     def get_geometry(self, intrinsics, extrinsics):
         rotation, translation = extrinsics[..., :3, :3], extrinsics[..., :3, 3]
+
         B, N, _ = translation.shape
 
         points = self.frustum.unsqueeze(0).unsqueeze(0).unsqueeze(-1)

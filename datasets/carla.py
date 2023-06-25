@@ -2,24 +2,30 @@ import os
 import warnings
 
 import torch
+import json
 import math
 import torchvision
 from PIL import Image
 
 import numpy as np
+from scipy.spatial.transform import Rotation   
+
 from tools.geometry import *
+
+torch.manual_seed(0)
 
 
 class CarlaDataset(torch.utils.data.Dataset):
-    def __init__(self, dataroot, is_train):
+    def __init__(self, data_path, is_train):
         self.is_train = is_train
 
-        self.dataroot = dataroot
+        self.data_path = data_path
 
-        self.mode = 'train' if self.is_train else 'val'
+        self.mode = 'train' if self.is_train else 'vazl'
 
         self.vehicles = len(os.listdir(os.path.join(self.data_path, 'agents')))
         self.ticks = len(os.listdir(os.path.join(self.data_path, 'agents/0/back_camera')))
+        self.offset = 0
 
         self.to_tensor = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
@@ -31,25 +37,37 @@ class CarlaDataset(torch.utils.data.Dataset):
             bev_resolution.numpy(), bev_start_position.numpy(), bev_dimension.numpy()
         )
 
-        self.cameras = ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT']
-
     def get_input_data(self, index, agent_path):
         images = []
         intrinsics = []
         extrinsics = []
 
-        for sensor_name, sensor_info in self.sensors_info['sensors'].items():
+        with open(os.path.join(agent_path, 'sensors.json'), 'r') as f:
+            sensors = json.load(f)
+
+        for sensor_name, sensor_info in sensors['sensors'].items():
             if sensor_info["sensor_type"] == "sensor.camera.rgb" and sensor_name != "birds_view_camera":
                 image = Image.open(os.path.join(agent_path + sensor_name, f'{index}.png'))
 
-                intrinsic = sensor_info["transform"]["intrinsic"]
-                extrinsic = sensor_info["transform"]["extrinsic"]
+                intrinsic = torch.tensor(sensor_info["intrinsic"])
+                translation = np.array(sensor_info["transform"]["location"])
+                rotation = sensor_info["transform"]["rotation"]
+
+                rotation[0] -= 90
+                rotation[1], rotation[2] = 0, -90
+
+                r = Rotation.from_euler('zyx', rotation, degrees=True)
+
+                extrinsic = np.eye(4, dtype=np.float32)
+                extrinsic[:3, :3] = r.as_matrix()
+                extrinsic[:3, 3] = translation
+                extrinsic = np.linalg.inv(extrinsic)
 
                 normalized_image = self.to_tensor(image)
 
                 images.append(normalized_image)
                 intrinsics.append(intrinsic)
-                extrinsics.append(inverse_extrinsics(extrinsic))
+                extrinsics.append(torch.tensor(extrinsic))
 
         images, intrinsics, extrinsics = (torch.stack(images, dim=0),
                                           torch.stack(intrinsics, dim=0),
@@ -62,7 +80,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         label = np.array(label_r)
         label_r.close()
 
-        empty = np.ones((200, 200))
+        empty = np.ones(self.bev_dimension[:2])
 
         road = mask(label, (128, 64, 128))
         lane = mask(label, (157, 234, 50))
@@ -72,8 +90,9 @@ class CarlaDataset(torch.utils.data.Dataset):
         empty[road == 1] = 0
         empty[lane == 1] = 0
         label = np.stack((vehicles, road, lane, empty))
+        # label = np.flip(label, axis=(1, 2))
 
-        return torch.tensor(label)
+        return torch.tensor(label.copy())
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -90,10 +109,25 @@ class CarlaDataset(torch.utils.data.Dataset):
 
 
 def compile_data(version, dataroot, batch_size=8, num_workers=16):
-    train_data = CarlaDataset(dataroot, True)
-    val_data = CarlaDataset(dataroot, False)
+    train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
+    val_data = CarlaDataset(os.path.join(dataroot, "val"), False)
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+    if version == 'mini':
+        train_data = torch.utils.data.RandomSampler(train_data, num_samples=128)
+        val_data = torch.utils.data.RandomSampler(val_data, num_samples=128)
+
+    train_loader = torch.utils.data.DataLoader(
+        train_data,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=True,
+    )
+
+    val_loader = torch.utils.data.DataLoader(
+        val_data,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=True,
+    )
 
     return train_loader, val_loader

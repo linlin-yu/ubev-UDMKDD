@@ -1,6 +1,7 @@
 from models.model import Model
 from tools.uncertainty import *
 from tools.loss import *
+from focal_loss.focal_loss import FocalLoss
 
 
 class Baseline(Model):
@@ -23,7 +24,7 @@ class Baseline(Model):
         if self.loss_type == 'ce':
             return ce_loss(logits, target, weights=self.weights).mean()
         elif self.loss_type == 'focal':
-            return focal_loss(logits, target, weights=self.weights).mean()
+            return focal_loss(logits, target, weights=self.weights, n=0).mean()
         else:
             raise NotImplementedError()
 

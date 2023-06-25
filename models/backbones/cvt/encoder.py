@@ -357,11 +357,8 @@ class Encoder(nn.Module):
         b, n, _, _, _ = images.shape
 
         image = images.flatten(0, 1)  # b n c h w
-        # I_inv = inverse(intrinsics)  # b n 3 3
-        # E_inv = inverse(extrinsics)  # b n 4 4
-
-        I_inv = intrinsics
-        E_inv = extrinsics
+        I_inv = inverse(intrinsics)  # b n 3 3
+        E_inv = inverse(extrinsics)  # b n 4 4
 
         image = self.norm(image)
 

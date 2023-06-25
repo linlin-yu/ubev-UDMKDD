@@ -174,14 +174,14 @@ class LiftSplatShoot(nn.Module):
             z_bound=[-10.0, 10.0, 20.0],
             d_bound=[4.0, 45.0, 1.0],
             final_dim=(224, 480),
-            outC=4,
+            n_classes=4,
             use_seg=False
     ):
         super(LiftSplatShoot, self).__init__()
 
         self.d_bound = d_bound
         self.final_dim = final_dim
-        self.outC = outC
+        self.outC = n_classes
 
         dx, bx, nx = gen_dx_bx(x_bound,
                                y_bound,
@@ -197,7 +197,7 @@ class LiftSplatShoot(nn.Module):
         self.frustum = self.create_frustum()
         self.D, _, _, _ = self.frustum.shape
         self.camencode = CamEncode(self.D, self.camC, use_seg=use_seg)
-        self.bevencode = BevEncode(inC=self.camC, outC=outC)
+        self.bevencode = BevEncode(inC=self.camC, outC=self.outC)
 
     def create_frustum(self):
         # make grid in image plane
@@ -219,7 +219,7 @@ class LiftSplatShoot(nn.Module):
         points = self.frustum.unsqueeze(0).unsqueeze(0).unsqueeze(-1)
 
         points = torch.cat((points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3], points[:, :, :, :, :, 2:3]), 5)
-        combined_transformation = rotation.matmul(torch.inverse(intrinsics))
+        combined_transformation = rotation.matmul(inverse(intrinsics))
         points = combined_transformation.view(B, N, 1, 1, 1, 3, 3).matmul(points).squeeze(-1)
         points += translation.view(B, N, 1, 1, 1, 3)
 
