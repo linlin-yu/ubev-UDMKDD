@@ -221,7 +221,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         rec = self.ixes[index]
-
         images, intrinsics, extrinsics = self.get_input_data(rec)
         labels = self.get_label(rec)
 

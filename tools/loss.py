@@ -14,11 +14,10 @@ def focal_loss(logits, target, weights=None, n=2):
     log_p = F.log_softmax(logits, dim=1)
 
     ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
-    print(ce.mean())
     log_pt = log_p.gather(1, target[None])
 
     pt = log_pt.exp()
-    loss = (1 - pt) ** n * ce
+    loss = ce * (1 - pt + 1e-8) ** n
 
     return loss
 
@@ -35,29 +34,38 @@ def uce_loss(alpha, y, weights=None):
     return A
 
 
+def u_focal_loss_exp(alpha, y, weights=None, n=2):
+    S = torch.sum(alpha, dim=1, keepdim=True)
+
+    a0 = S
+    aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
+
+    B = y * (gamma(a0 - aj + n) * gamma(a0) / (gamma(a0 + n) * gamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
+
+    if weights is not None:
+        B *= weights.view(1, -1, 1, 1)
+
+    A = torch.sum(B, dim=1, keepdim=True)
+
+    return A
+
+
 def u_focal_loss(alpha, y, weights=None, n=2):
-    uce = uce_loss(alpha, y, weights=weights)
-    p = alpha / torch.sum(alpha, dim=1, keepdim=True)
-    pt = p.gather(1, y.argmax(dim=1)[None])
+    S = torch.sum(alpha, dim=1, keepdim=True)
 
-    loss = (1 - pt) ** n * uce
-    return loss
+    a0 = S
+    aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
 
+    B = y * torch.exp(
+        (torch.lgamma(a0 - aj + n) + torch.lgamma(a0)) - (torch.lgamma(a0 + n) + torch.lgamma(a0 - aj))
+    ) * (torch.digamma(a0 + n) - torch.digamma(aj))
 
-# def u_focal_loss(alpha, y, weights=None, n=2):
-#     S = torch.sum(alpha, dim=1, keepdim=True)
-#
-#     a0 = S
-#     aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
-#
-#     B = y * (gamma(a0 - aj + n) * gamma(a0) / (gamma(a0 + n) * gamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
-#
-#     if weights is not None:
-#         B *= weights.view(1, -1, 1, 1)
-#
-#     A = torch.sum(B, dim=1, keepdim=True)
-#
-#     return A
+    if weights is not None:
+        B *= weights.view(1, -1, 1, 1)
+
+    A = torch.sum(B, dim=1, keepdim=True)
+
+    return A
 
 
 def entropy_reg(alpha, beta_reg=.0005):

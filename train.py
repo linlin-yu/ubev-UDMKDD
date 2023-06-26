@@ -84,6 +84,7 @@ def train():
     writer.add_text("config", str(config))
 
     step = 0
+    torch.autograd.set_detect_anomaly(True)
 
     for epoch in range(config['num_epochs']):
         model.train()

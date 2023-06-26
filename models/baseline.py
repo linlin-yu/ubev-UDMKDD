@@ -24,7 +24,7 @@ class Baseline(Model):
         if self.loss_type == 'ce':
             return ce_loss(logits, target, weights=self.weights).mean()
         elif self.loss_type == 'focal':
-            return focal_loss(logits, target, weights=self.weights, n=0).mean()
+            return focal_loss(logits, target, weights=self.weights, n=2).mean()
         else:
             raise NotImplementedError()
 
