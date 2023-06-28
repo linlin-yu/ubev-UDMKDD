@@ -5,8 +5,13 @@ import numpy as np
 import torch
 from sklearn.metrics import *
 
+from rich import print
+from rich.table import Table
+from rich.panel import Panel
+
 import argparse
 import yaml
+
 
 colors = torch.tensor([
     [0, 0, 255],
@@ -14,6 +19,18 @@ colors = torch.tensor([
     [0, 255, 0],
     [0, 0, 0],
 ])
+
+
+def display_config(config):
+    table = Table(title="Config", show_header=False)
+    table.add_column("Key", style="cyan")
+    table.add_column("Value", style="magenta")
+
+    for key, value in config.items():
+        table.add_row(key, f"{value}" if isinstance(value, (int, float)) else str(value))
+
+    # panel = Panel(table, title="Configuration")
+    print(table)
 
 
 def patch_metrics(uncertainty_scores, uncertainty_labels, sample_size=1_000_000):

@@ -1,5 +1,6 @@
 from time import time
 
+from rich.progress import Progress
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -9,6 +10,7 @@ from datasets.carla import compile_data as compile_data_carla
 from models.baseline import Baseline
 from models.evidential import Evidential
 from tools.utils import *
+
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -23,13 +25,18 @@ def get_loader_info(model, loader):
     epistemic = []
 
     with torch.no_grad():
-        for images, intrinsics, extrinsics, labels in tqdm(loader, desc="Running validation"):
-            outs = model(images, intrinsics, extrinsics)
+        with Progress(transient=True) as progress:
+            task = progress.add_task(f"[cyan]Running validation...", total=len(loader) / config['batch_size'])
 
-            predictions.append(model.activate(outs).detach().cpu())
-            ground_truth.append(labels)
-            aleatoric.append(model.aleatoric(outs).detach().cpu())
-            epistemic.append(model.epistemic(outs).detach().cpu())
+            for images, intrinsics, extrinsics, labels in loader:
+                outs = model(images, intrinsics, extrinsics)
+
+                predictions.append(model.activate(outs).detach().cpu())
+                ground_truth.append(labels)
+                aleatoric.append(model.aleatoric(outs).detach().cpu())
+                epistemic.append(model.epistemic(outs).detach().cpu())
+
+            progress.update(task, advance=1)
 
     return (torch.cat(predictions, dim=0),
             torch.cat(ground_truth, dim=0),
@@ -70,17 +77,9 @@ def train():
         weight_decay=config['weight_decay']
     )
 
-    print("--------------------------------------------------")
-    print(f"Using GPUS: {config['gpus']}")
-    print(f"Train loader: {len(train_loader.dataset)}")
-    print(f"Val loader: {len(val_loader.dataset)}")
-    print(f"Batch size: {config['batch_size']}")
-    print(f"Output directory: {config['logdir']} ")
-    print(f"Using loss {config['loss']}")
-    print("--------------------------------------------------")
+    display_config(config)
 
     writer = SummaryWriter(logdir=config['logdir'])
-
     writer.add_text("config", str(config))
 
     step = 0
@@ -91,28 +90,34 @@ def train():
 
         writer.add_scalar('train/epoch', epoch, step)
 
-        for images, intrinsics, extrinsics, labels in train_loader:
-            t_0 = time()
+        with Progress(transient=True) as progress:
+            task = progress.add_task(f"[cyan]Running epoch...", total=len(train_loader) / config['batch_size'])
 
-            outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
+            for images, intrinsics, extrinsics, labels in train_loader:
+                t_0 = time()
 
-            step += 1
+                outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
 
-            if step % 10 == 0:
-                print(f"[{epoch}] {step}", loss.item())
+                step += 1
 
-                writer.add_scalar('train/step_time', time() - t_0, step)
-                writer.add_scalar('train/loss', loss, step)
+                head = f"[green][{epoch}][/green] [light_salmon3]{step}[/light_salmon3]"
+                if step % 10 == 0:
+                    print(f"{head} {loss.item()}")
 
-                save_pred(preds, labels, config['logdir'])
+                    writer.add_scalar('train/step_time', time() - t_0, step)
+                    writer.add_scalar('train/loss', loss, step)
 
-            if step % 50 == 0:
-                iou = get_iou(preds.cpu(), labels)
+                    save_pred(preds, labels, config['logdir'])
 
-                print(f"[{epoch}] {step}", "IOU: ", iou)
+                if step % 50 == 0:
+                    iou = get_iou(preds.cpu(), labels)
 
-                for i in range(0, n_classes):
-                    writer.add_scalar(f'train/{classes[i]}_iou', iou[i], step)
+                    print(f"{head} [red]mIOU:[/red] {iou}")
+
+                    for i in range(0, n_classes):
+                        writer.add_scalar(f'train/{classes[i]}_iou', iou[i], step)
+
+                progress.update(task, advance=1)
 
         model.eval()
 
@@ -123,7 +128,7 @@ def train():
         for i in range(0, n_classes):
             writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)
 
-        print(f"Validation mIOU: {iou}")
+        print(f"[green][{epoch}][/green] [red]Val mIOU:[/red]: {iou}")
 
         model.save(os.path.join(config['logdir'], f'{epoch}.pt'))
 

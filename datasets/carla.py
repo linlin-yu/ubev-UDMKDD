@@ -53,8 +53,8 @@ class CarlaDataset(torch.utils.data.Dataset):
                 translation = np.array(sensor_info["transform"]["location"])
                 rotation = sensor_info["transform"]["rotation"]
 
-                rotation[0] -= 90
-                rotation[1], rotation[2] = 0, -90
+                rotation[0] += 90
+                rotation[2] -= 90
 
                 r = Rotation.from_euler('zyx', rotation, degrees=True)
 
@@ -76,7 +76,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics
 
     def get_label(self, index, agent_path):
-        label_r = Image.open(os.path.join(agent_path + "birds_view_semantic_camera", f'{index}.png'))
+        label_r = Image.open(os.path.join(agent_path + "bev_semantic", f'{index}.png'))
         label = np.array(label_r)
         label_r.close()
 
@@ -121,6 +121,7 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16):
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=True,
+        drop_last=True,
     )
 
     val_loader = torch.utils.data.DataLoader(
@@ -128,6 +129,7 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16):
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=True,
+        drop_last=True,
     )
 
     return train_loader, val_loader

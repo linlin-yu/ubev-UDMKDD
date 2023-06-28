@@ -244,14 +244,16 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16):
         train_data,
         batch_size=batch_size,
         num_workers=num_workers,
-        shuffle=True
+        shuffle=True,
+        drop_last=True,
     )
 
     val_loader = torch.utils.data.DataLoader(
         val_data,
         batch_size=batch_size,
         num_workers=num_workers,
-        shuffle=True
+        shuffle=True,
+        drop_last=True,
     )
 
     return train_loader, val_loader
