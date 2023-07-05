@@ -1,13 +1,9 @@
+import argparse
 from time import time
 
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-from datasets.nuscenes import compile_data as compile_data_nuscenes
-from datasets.carla import compile_data as compile_data_carla
-
-from models.baseline import Baseline
-from models.evidential import Evidential
 from tools.utils import *
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -16,43 +12,9 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 torch.manual_seed(0)
 
 
-def get_loader_info(model, loader):
-    predictions = []
-    ground_truth = []
-    aleatoric = []
-    epistemic = []
-
-    with torch.no_grad():
-        for images, intrinsics, extrinsics, labels in tqdm(loader, desc="Running validation"):
-            outs = model(images, intrinsics, extrinsics)
-
-            predictions.append(model.activate(outs).detach().cpu())
-            ground_truth.append(labels)
-            aleatoric.append(model.aleatoric(outs).detach().cpu())
-            epistemic.append(model.epistemic(outs).detach().cpu())
-
-    return (torch.cat(predictions, dim=0),
-            torch.cat(ground_truth, dim=0),
-            torch.cat(aleatoric, dim=0),
-            torch.cat(epistemic, dim=0))
-
-
-models = {
-    'baseline': Baseline,
-    'evidential': Evidential
-}
-
-datasets = {
-    'nuscenes': compile_data_nuscenes,
-    'carla': compile_data_carla
-}
-
-
 def train():
-    n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
-
     train_loader, val_loader = datasets[config['dataset']](
-        split, DATAROOT,
+        split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers']
     )
@@ -91,10 +53,13 @@ def train():
 
         writer.add_scalar('train/epoch', epoch, step)
 
-        for images, intrinsics, extrinsics, labels in train_loader:
+        for images, intrinsics, extrinsics, labels, ood in train_loader:
             t_0 = time()
 
-            outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
+            if is_ood:
+                outs, preds, loss = model.train_step_ood(images, intrinsics, extrinsics, labels)
+            else:
+                outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
 
             step += 1
 
@@ -104,6 +69,8 @@ def train():
                 writer.add_scalar('train/step_time', time() - t_0, step)
                 writer.add_scalar('train/loss', loss, step)
 
+                if is_ood:
+                    save_unc(model.epistemic(outs), ood, config['logdir'])
                 save_pred(preds, labels, config['logdir'])
 
             if step % 50 == 0:
@@ -116,7 +83,7 @@ def train():
 
         model.eval()
 
-        predictions, ground_truth, aleatoric, epistemic = get_loader_info(model, val_loader)
+        predictions, ground_truth, _, _, _ = get_loader_info(model, val_loader)
 
         iou = get_iou(predictions, ground_truth)
 
@@ -136,21 +103,20 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--logdir', required=False, type=str)
     parser.add_argument('-b', '--batch_size', required=False, type=int)
     parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
+    parser.add_argument('-p', '--pretrained', required=False, type=str)
+    parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('--loss', default="ce", required=False, type=str)
 
     args = parser.parse_args()
 
     print(f"Using config {args.config}")
     config = get_config(args)
+    is_ood = args.ood
 
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
 
     split = args.split
-
-    if config['dataset'] == 'carla':
-        DATAROOT = "../data/carla"
-    else:
-        DATAROOT = "../data/nuscenes"
+    dataroot = f"../data/{config['dataset']}"
 
     train()

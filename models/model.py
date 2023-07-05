@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from models.backbones.fiery.fiery import Fiery
 from models.backbones.cvt.cross_view_transformer import CrossViewTransformer
+from models.backbones.fiery.fiery import Fiery
 from models.backbones.lss.lift_splat_shoot import LiftSplatShoot
 
 backbones = {

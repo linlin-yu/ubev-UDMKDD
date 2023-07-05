@@ -1,17 +1,16 @@
 import os
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from sklearn.metrics import *
-
-from rich import print
-from rich.table import Table
-from rich.panel import Panel
-
-import argparse
 import yaml
+from tqdm import tqdm
 
+from datasets.carla import compile_data as compile_data_carla
+from datasets.nuscenes import compile_data as compile_data_nuscenes
+from models.baseline import Baseline
+from models.evidential import Evidential
 
 colors = torch.tensor([
     [0, 0, 255],
@@ -20,85 +19,41 @@ colors = torch.tensor([
     [0, 0, 0],
 ])
 
+n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 
-def display_config(config):
-    table = Table(title="Config", show_header=False)
-    table.add_column("Key", style="cyan")
-    table.add_column("Value", style="magenta")
+models = {
+    'baseline': Baseline,
+    'evidential': Evidential
+}
 
-    for key, value in config.items():
-        table.add_row(key, f"{value}" if isinstance(value, (int, float)) else str(value))
-
-    # panel = Panel(table, title="Configuration")
-    print(table)
-
-
-def patch_metrics(uncertainty_scores, uncertainty_labels, sample_size=1_000_000):
-    thresholds = np.linspace(0, 1, 10)
-    pavpus = []
-    agcs = []
-    ugis = []
-
-    for threshold in thresholds:
-        pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=threshold)
-        pavpus.append(pavpu)
-        agcs.append(agc)
-        ugis.append(ugi)
-
-    return pavpus, agcs, ugis, thresholds, auc(thresholds, pavpus), auc(thresholds, agcs), auc(thresholds, ugis)
+datasets = {
+    'nuscenes': compile_data_nuscenes,
+    'carla': compile_data_carla,
+}
 
 
-def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0.5, uncertainty_threshold=0.2, window_size=4):
-    ac, ic, au, iu = 0., 0., 0., 0.
+def get_loader_info(model, loader):
+    predictions = []
+    ground_truth = []
+    oods = []
+    aleatoric = []
+    epistemic = []
 
-    anchor = (0, 0)
-    last_anchor = (uncertainty_labels.shape[1] - window_size, uncertainty_labels.shape[2] - window_size)
+    with torch.no_grad():
+        for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
+            outs = model(images, intrinsics, extrinsics).detach().cpu()
 
-    while anchor != last_anchor:
-        label_window = uncertainty_labels[:, anchor[0]:anchor[0] + window_size, anchor[1]:anchor[1] + window_size]
-        uncertainty_window = uncertainty_scores[:, anchor[0]:anchor[0] + window_size, anchor[1]:anchor[1] + window_size]
+            predictions.append(model.activate(outs))
+            ground_truth.append(labels)
+            oods.append(ood)
+            aleatoric.append(model.aleatoric(outs))
+            epistemic.append(model.epistemic(outs))
 
-        accuracy = torch.sum(label_window, dim=(1, 2)) / (window_size ** 2)
-        avg_uncertainty = torch.mean(uncertainty_window, dim=(1, 2))
-
-        accurate = accuracy < accuracy_threshold
-        uncertain = avg_uncertainty >= uncertainty_threshold
-
-        au += torch.sum(accurate & uncertain)
-        ac += torch.sum(accurate & ~uncertain)
-        iu += torch.sum(~accurate & uncertain)
-        ic += torch.sum(~accurate & ~uncertain)
-
-        if anchor[1] < uncertainty_labels.shape[1] - window_size:
-            anchor = (anchor[0], anchor[1] + window_size)
-        else:
-            anchor = (anchor[0] + window_size, 0)
-
-    a_given_c = ac / (ac + ic + 1e-10)
-    u_given_i = iu / (ic + iu + 1e-10)
-
-    pavpu = (ac + iu) / (ac + au + ic + iu + 1e-10)
-
-    return pavpu.item(), a_given_c.item(), u_given_i.item()
-
-
-def roc_pr(uncertainty_scores, uncertainty_labels, sample_size=1_000_000):
-    y_true = uncertainty_labels.flatten()
-    y_score = uncertainty_scores.flatten()
-
-    indices = np.random.choice(y_true.shape[0], sample_size, replace=False)
-
-    y_true = y_true[indices]
-    y_score = y_score[indices]
-
-    pr, rec, _ = precision_recall_curve(y_true, y_score)
-    fpr, tpr, _ = roc_curve(y_true, y_score)
-    aupr = auc(rec, pr)
-    auroc = auc(fpr, tpr)
-
-    no_skill = torch.sum(y_true) / len(y_true)
-
-    return fpr, tpr, rec, pr, auroc, aupr, no_skill
+    return (torch.cat(predictions, dim=0),
+            torch.cat(ground_truth, dim=0),
+            torch.cat(oods, dim=0),
+            torch.cat(aleatoric, dim=0),
+            torch.cat(epistemic, dim=0))
 
 
 def get_iou(preds, labels):
@@ -127,6 +82,21 @@ def map_rgb(onehot, ego=False):
         rgb[94:106, 98:102] = (0, 255, 255)
 
     return rgb
+
+
+def save_unc(u_score, u_true, out_path):
+    u_score = u_score.detach().cpu().numpy()
+    u_true = u_true.numpy()
+
+    cv2.imwrite(
+        os.path.join(out_path, "u_true.png"),
+        u_true[0] * 255
+    )
+
+    cv2.imwrite(
+        os.path.join(out_path, "u_score.png"),
+        cv2.cvtColor((plt.cm.jet(u_score[0][0]) * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+    )
 
 
 def save_pred(preds, labels, out_path, ego=False):

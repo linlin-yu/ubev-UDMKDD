@@ -1,5 +1,4 @@
 import torch
-
 import torch.distributions as D
 import torch.nn.functional as F
 from torch import nn
@@ -25,22 +24,6 @@ def focal_loss(logits, target, weights=None, n=2):
 def uce_loss(alpha, y, weights=None):
     S = torch.sum(alpha, dim=1, keepdim=True)
     B = y * (torch.digamma(S) - torch.digamma(alpha) + 1e-10)
-
-    if weights is not None:
-        B *= weights.view(1, -1, 1, 1)
-
-    A = torch.sum(B, dim=1, keepdim=True)
-
-    return A
-
-
-def u_focal_loss_exp(alpha, y, weights=None, n=2):
-    S = torch.sum(alpha, dim=1, keepdim=True)
-
-    a0 = S
-    aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
-
-    B = y * (gamma(a0 - aj + n) * gamma(a0) / (gamma(a0 + n) * gamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
 
     if weights is not None:
         B *= weights.view(1, -1, 1, 1)
@@ -84,7 +67,7 @@ def ood_reg(alpha, ood):
 
     reg = D.kl.kl_divergence(alpha_d, target_d).unsqueeze(1)
 
-    return reg[ood].mean()
+    return reg[ood.unsqueeze(1).bool()].mean()
 
 
 def gamma(x):

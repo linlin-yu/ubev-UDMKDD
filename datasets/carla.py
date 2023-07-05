@@ -1,14 +1,13 @@
+import json
+import math
 import os
 import warnings
 
+import numpy as np
 import torch
-import json
-import math
 import torchvision
 from PIL import Image
-
-import numpy as np
-from scipy.spatial.transform import Rotation   
+from scipy.spatial.transform import Rotation
 
 from tools.geometry import *
 
@@ -21,7 +20,7 @@ class CarlaDataset(torch.utils.data.Dataset):
 
         self.data_path = data_path
 
-        self.mode = 'train' if self.is_train else 'vazl'
+        self.mode = 'train' if self.is_train else 'val'
 
         self.vehicles = len(os.listdir(os.path.join(self.data_path, 'agents')))
         self.ticks = len(os.listdir(os.path.join(self.data_path, 'agents/0/back_camera')))
@@ -86,13 +85,16 @@ class CarlaDataset(torch.utils.data.Dataset):
         lane = mask(label, (157, 234, 50))
         vehicles = mask(label, (0, 0, 142))
 
+        ood = mask(label, (0, 0, 0))
+        bounding_boxes = find_bounding_boxes(ood)
+        ood = draw_bounding_boxes(bounding_boxes)
+
         empty[vehicles == 1] = 0
         empty[road == 1] = 0
         empty[lane == 1] = 0
         label = np.stack((vehicles, road, lane, empty))
-        # label = np.flip(label, axis=(1, 2))
 
-        return torch.tensor(label.copy())
+        return torch.tensor(label.copy()), torch.tensor(ood)
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -103,33 +105,53 @@ class CarlaDataset(torch.utils.data.Dataset):
         index = (index + self.offset) % self.ticks
 
         images, intrinsics, extrinsics = self.get_input_data(index, agent_path)
-        labels = self.get_label(index, agent_path)
+        labels, ood = self.get_label(index, agent_path)
 
-        return images, intrinsics, extrinsics, labels
+        return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16):
-    train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
-    val_data = CarlaDataset(os.path.join(dataroot, "val"), False)
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
+    if ood:
+        train_data = CarlaDataset(os.path.join(dataroot, "val_aug"), True)
+        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
+    else:
+        train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
+        val_data = CarlaDataset(os.path.join(dataroot, "val"), False)
 
     if version == 'mini':
-        train_data = torch.utils.data.RandomSampler(train_data, num_samples=128)
-        val_data = torch.utils.data.RandomSampler(val_data, num_samples=128)
+        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=128)
+        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=128)
 
-    train_loader = torch.utils.data.DataLoader(
-        train_data,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=True,
-        drop_last=True,
-    )
+        train_loader = torch.utils.data.DataLoader(
+            train_data,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            drop_last=True,
+            sampler=train_sampler
+        )
 
-    val_loader = torch.utils.data.DataLoader(
-        val_data,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=True,
-        drop_last=True,
-    )
+        val_loader = torch.utils.data.DataLoader(
+            val_data,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            drop_last=True,
+            sampler=val_sampler
+        )
+    else:
+        train_loader = torch.utils.data.DataLoader(
+            train_data,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True,
+            drop_last=True,
+        )
+
+        val_loader = torch.utils.data.DataLoader(
+            val_data,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True,
+            drop_last=True,
+        )
 
     return train_loader, val_loader

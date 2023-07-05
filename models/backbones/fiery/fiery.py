@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 from models.backbones.fiery.decoder import Decoder
 from models.backbones.fiery.encoder import Encoder

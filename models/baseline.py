@@ -1,7 +1,8 @@
-from models.model import Model
-from tools.uncertainty import *
-from tools.loss import *
 from focal_loss.focal_loss import FocalLoss
+
+from models.model import Model
+from tools.loss import *
+from tools.uncertainty import *
 
 
 class Baseline(Model):

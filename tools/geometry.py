@@ -1,12 +1,10 @@
-from PIL import Image
 import cv2
-import torch
 import numpy as np
-from scipy.spatial import ConvexHull
-
-from pyquaternion import Quaternion
+import torch
 from nuscenes.utils.data_classes import Box
-
+from PIL import Image
+from pyquaternion import Quaternion
+from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
 
 
@@ -126,7 +124,6 @@ def render_ood(
         size,
         intrinsic,
         extrinsic,
-        camera,
         bev_resolution,
         bev_start_position,
         image_size=(224, 480),
@@ -144,7 +141,7 @@ def render_ood(
 
     if type == 'carla':
         adjust_roll = Rotation.from_euler('x', [-90], degrees=True)
-        adjust_yaw = Rotation.from_euler('z', [90], degrees=True)
+        adjust_yaw = Rotation.from_euler('z', [-90], degrees=True)
 
         e = Rotation.from_matrix(extrinsic[:3, :3])
         extrinsic[:3, :3] = (adjust_roll * e * adjust_yaw).as_matrix()
@@ -163,3 +160,31 @@ def render_ood(
     fill_convex_hull(cam_ood, corners)
 
     return bev_ood, cam_ood
+
+
+def find_bounding_boxes(mask):
+    num_labels, labels = cv2.connectedComponents(mask.astype('uint8'))
+
+    bounding_boxes = []
+
+    for label in range(1, num_labels):
+        group_mask = np.where(labels == label, 255, 0).astype('uint8')
+        contours, _ = cv2.findContours(group_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for contour in contours:
+            bounding_box = cv2.minAreaRect(contour)
+            bounding_boxes.append(bounding_box)
+
+    return bounding_boxes
+
+
+def draw_bounding_boxes(bounding_boxes, dim=(200, 200)):
+    # convert the mask to a 3-channel image to draw colored bounding boxes
+    mask = np.zeros(dim)
+
+    for bounding_box in bounding_boxes:
+        bounding_box = cv2.boxPoints(bounding_box).astype('int')
+
+        cv2.fillPoly(mask, [bounding_box], 1.0)
+
+    return mask

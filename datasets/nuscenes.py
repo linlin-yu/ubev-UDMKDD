@@ -2,19 +2,18 @@ import os
 import warnings
 
 import cv2
+import numpy as np
 import torch
 import torchvision
 from nuscenes.eval.common.utils import quaternion_yaw
 from nuscenes.map_expansion.map_api import NuScenesMap
+from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.data_classes import Box
 from nuscenes.utils.splits import create_splits_scenes
 from PIL import Image
 from pyquaternion import Quaternion
-
 from shapely.errors import ShapelyDeprecationWarning
-import numpy as np
 
-from nuscenes.nuscenes import NuScenes
 from tools.geometry import *
 
 warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)

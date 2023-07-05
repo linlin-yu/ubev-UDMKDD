@@ -1,6 +1,6 @@
 from models.model import Model
-from tools.uncertainty import *
 from tools.loss import *
+from tools.uncertainty import *
 
 
 class Evidential(Model):
@@ -23,7 +23,7 @@ class Evidential(Model):
         if self.loss_type == 'ce':
             A = uce_loss(alpha, y, weights=self.weights)
         elif self.loss_type == 'focal':
-            A = u_focal_loss(alpha, y, weights=self.weights)
+            A = u_focal_loss(alpha, y, weights=self.weights, n=2)
         else:
             raise NotImplementedError()
 
@@ -42,12 +42,26 @@ class Evidential(Model):
         if beta_lambda > 0:
             A += entropy_reg(alpha, beta_reg=beta_lambda)
 
-        A = A[1 - ood].mean()
+        A = A[(1 - ood).unsqueeze(1).bool()].mean()
 
         if ood_lambda > 0:
             A += ood_reg(alpha, ood) * ood_lambda
 
         return A
+
+    def train_step_ood(self, images, intrinsics, extrinsics, labels, ood):
+        self.opt.zero_grad(set_to_none=True)
+
+        outs = self(images, intrinsics, extrinsics)
+        preds = self.activate(outs)
+
+        loss = self.loss_ood(outs, labels.to(self.device), ood)
+        loss.backward()
+
+        nn.utils.clip_grad_norm_(self.parameters(), 5.0)
+        self.opt.step()
+
+        return outs, preds, loss
 
     def forward(self, images, intrinsics, extrinsics, limit=None):
         evidence = self.backbone(images, intrinsics, extrinsics).relu()
