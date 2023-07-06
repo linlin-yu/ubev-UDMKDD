@@ -56,6 +56,8 @@ def roc_pr(uncertainty_scores, uncertainty_labels, sample_size=1_000_000):
     y_true = uncertainty_labels.flatten()
     y_score = uncertainty_scores.flatten()
 
+    print(y_score.shape)
+
     indices = np.random.choice(y_true.shape[0], sample_size, replace=False)
 
     y_true = y_true[indices]

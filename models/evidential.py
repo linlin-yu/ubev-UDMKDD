@@ -2,6 +2,8 @@ from models.model import Model
 from tools.loss import *
 from tools.uncertainty import *
 
+import cv2
+
 
 class Evidential(Model):
     def __init__(self, *args, **kwargs):
@@ -35,7 +37,7 @@ class Evidential(Model):
     def loss_ood(
         self, alpha, y, ood,
         beta_lambda=.0005,
-        ood_lambda=.0001
+        ood_lambda=.0005
     ):
         A = uce_loss(alpha, y, self.weights)
 
@@ -43,7 +45,7 @@ class Evidential(Model):
             A += entropy_reg(alpha, beta_reg=beta_lambda)
 
         A = A[(1 - ood).unsqueeze(1).bool()].mean()
-
+        
         if ood_lambda > 0:
             A += ood_reg(alpha, ood) * ood_lambda
 

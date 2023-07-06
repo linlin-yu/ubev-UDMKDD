@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     if is_ood:
         uncertainty_scores = epistemic.squeeze(1)
-        uncertainty_labels = ground_truth
+        uncertainty_labels = oods
     else:
         iou = get_iou(predictions, ground_truth)
         print(f"mIOU: {iou}")

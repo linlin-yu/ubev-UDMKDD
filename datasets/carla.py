@@ -112,7 +112,7 @@ class CarlaDataset(torch.utils.data.Dataset):
 
 def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
     if ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "val_aug"), True)
+        train_data = CarlaDataset(os.path.join(dataroot, "ood"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
     else:
         train_data = CarlaDataset(os.path.join(dataroot, "train"), True)

@@ -4,6 +4,7 @@ from time import time
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
+from tools.metrics import *
 from tools.utils import *
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -16,7 +17,8 @@ def train():
     train_loader, val_loader = datasets[config['dataset']](
         split, dataroot,
         batch_size=config['batch_size'],
-        num_workers=config['num_workers']
+        num_workers=config['num_workers'],
+        ood=is_ood
     )
 
     model = models[config['type']](
@@ -31,6 +33,9 @@ def train():
         lr=config['learning_rate'],
         weight_decay=config['weight_decay']
     )
+
+    if 'pretrained' in config:
+        model.load(torch.load(config['pretrained']))
 
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
@@ -57,7 +62,7 @@ def train():
             t_0 = time()
 
             if is_ood:
-                outs, preds, loss = model.train_step_ood(images, intrinsics, extrinsics, labels)
+                outs, preds, loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
             else:
                 outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
 
