@@ -177,8 +177,9 @@ class NuScenesDataset(torch.utils.data.Dataset):
         empty[road == 1] = 0
         empty[lane == 1] = 0
 
-        labels = np.stack((vehicles, road, lane, empty))
+        # labels = np.stack((vehicles, road, lane, empty))
         # labels = np.stack((vehicles, empty + road + lane))
+        labels = np.stack((vehicles, ))
         labels = np.flip(labels, axis=(1, 2))
 
         return torch.tensor(labels.copy())
@@ -223,7 +224,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         images, intrinsics, extrinsics = self.get_input_data(rec)
         labels = self.get_label(rec)
 
-        return images, intrinsics, extrinsics, labels
+        return images, intrinsics, extrinsics, labels, torch.zeros(1)
 
 
 def get_nusc(version, dataroot):
@@ -233,7 +234,7 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16):
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
     nusc, dataroot = get_nusc(version, dataroot)
 
     train_data = NuScenesDataset(nusc, True)

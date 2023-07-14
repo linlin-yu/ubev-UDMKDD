@@ -19,7 +19,8 @@ class Model(nn.Module):
 
         self.device = devices[0]
 
-        self.weights = torch.tensor([3., 1., 2., 1.]).to(devices[0])
+        # self.weights = torch.tensor([3., 1., 2., 1.]).to(devices[0])
+        self.weights = None
 
         self.backbone = nn.DataParallel(backbones[backbone](n_classes=n_classes).to(devices[0]),
                                         output_device=devices[0],
@@ -51,7 +52,7 @@ class Model(nn.Module):
         self.load_state_dict(state_dict['model_state_dict'])
 
         if self.opt is not None:
-            self.optimizer.load_state_dict(state_dict['optimizer_state_dict'])
+            self.opt.load_state_dict(state_dict['optimizer_state_dict'])
 
     def save(self, path):
         torch.save(self.state_dict(), path)

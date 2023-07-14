@@ -154,8 +154,6 @@ def render_ood(
 
     r = Rotation.from_matrix(extrinsic[:3, :3])
 
-    print(r.as_euler("zyx", degrees=True))
-
     corners = get_image_points(corners, intrinsic, extrinsic)
     fill_convex_hull(cam_ood, corners)
 
@@ -179,7 +177,6 @@ def find_bounding_boxes(mask):
 
 
 def draw_bounding_boxes(bounding_boxes, dim=(200, 200)):
-    # convert the mask to a 3-channel image to draw colored bounding boxes
     mask = np.zeros(dim)
 
     for bounding_box in bounding_boxes:

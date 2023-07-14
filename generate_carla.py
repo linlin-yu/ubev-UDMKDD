@@ -1,8 +1,7 @@
 from datasets.carla import *
 from tools.utils import *
 import random
-from time import time
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
@@ -12,11 +11,11 @@ from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 
 
 def get_prompt(animal):
-    return f"Add a {animal} standing on the road. The {animal} should be as large as possible. Make the {animal} photorealistic"
+    return f"A {animal} standing on the road. The {animal} should be as large as possible. Make the {animal} photorealistic"
 
 
 def generate():
-    data_path = "../data/carla/train"
+
     carla_data = CarlaDataset(data_path, False)
 
     pipe = StableDiffusionInpaintPipeline.from_pretrained(
@@ -26,13 +25,21 @@ def generate():
 
     pipe.enable_xformers_memory_efficient_attention(attention_op=MemoryEfficientAttentionFlashAttentionOp)
     pipe.vae.enable_xformers_memory_efficient_attention(attention_op=None)
-    pipe = pipe.to(0)
+    pipe = pipe.to(gpu)
+    pipe.set_progress_bar_config(disable=True)
 
     animals = [
         "bear",
         "elephant",
         "horse",
         "deer"
+    ]
+
+    size = [
+        [],
+        [],
+        [],
+        [],
     ]
 
     cameras = [
@@ -44,9 +51,10 @@ def generate():
         'right_back_camera'
     ]
 
-    save_dir = "../../data/carla/train_aug"
 
-    for i, (images, intrinsics, extrinsics, labels, ood) in enumerate(tqdm(carla_data)):
+    for i in tqdm(range(start, end)):
+        images, intrinsics, extrinsics, labels, ood = carla_data[i]
+
         agent_number = math.floor(i / carla_data.ticks)
         agent_path = os.path.join(data_path, f"agents/{agent_number}/")
         save_path = os.path.join(save_dir, f"agents/{agent_number}/")
@@ -80,35 +88,44 @@ def generate():
 
         label[bev_ood == 1, :] = 0
 
-        print(os.path.join(save_path + "bev_semantic", f'{index}.png'))
-        cv2.imwrite(os.path.join(save_path + "bev_semantic", f'{index}.png'), cv2.cvtColor(label, cv2.COLOR_BGR2RGB))
+        cv2.imwrite(os.path.join(save_path + "bev_semantic", f'{index}.png'), label)
 
         for i in range(6):
             sensor_name = cameras[i]
             image = Image.open(os.path.join(agent_path + sensor_name, f'{index}.png'))
-
             if i == cam:
-                sc = 2
-                image_r = F.interpolate(images[None, cam],
-                                        scale_factor=sc, mode='bilinear', align_corners=False)
-                mask_r = F.interpolate(torch.tensor(cam_ood[None, None]),
-                                       scale_factor=sc, mode='bilinear', align_corners=False)
+                w, h = (960, 448)
+                # w, h = (512, 240)
 
-                result = pipe(
+                image = image.resize((w, h))
+                cam_ood = cv2.resize(cam_ood, (w, h))
+
+                image = pipe(
                     prompt=get_prompt(animals[a]),
-                    image=image_r * 2 - 1,
-                    mask_image=mask_r,
-                    width=480 * sc, height=224 * sc,
-                    output_type='np',
+                    image=image,
+                    mask_image=cam_ood,
+                    width=w, height=h,
                 ).images[0]
-
-                cam_image = cv2.resize(result, (480, 224)) * 255
-            else:
-                cam_image = np.array(image)
+                image = image.resize((480, 224))
 
             os.makedirs(os.path.join(save_path, sensor_name), exist_ok=True)
-            cv2.imwrite(os.path.join(save_path + sensor_name, f'{index}.png'), cv2.cvtColor(cam_image, cv2.COLOR_BGR2RGB))
+            image.save(os.path.join(save_path + sensor_name, f'{index}.png'))
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--start', required=True, type=int)
+    parser.add_argument('-e', '--end', required=True, type=int)
+    parser.add_argument('-g', '--gpu', required=True, type=int)
+    parser.add_argument('-l', '--output', required=True, type=str)
+    parser.add_argument('-d', '--datapath', required=True, type=str)
+    args = parser.parse_args()
+
+    start = args.start
+    end = args.end
+    gpu = args.gpu
+    data_path = args.datapath
+    save_dir = args.output
+
     generate()

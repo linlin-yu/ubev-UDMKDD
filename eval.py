@@ -74,8 +74,6 @@ if __name__ == "__main__":
 
     predictions, ground_truth, oods, aleatoric, epistemic = eval()
 
-    print(oods.mean())
-
     if is_ood:
         uncertainty_scores = epistemic.squeeze(1)
         uncertainty_labels = oods
@@ -84,14 +82,9 @@ if __name__ == "__main__":
         print(f"mIOU: {iou}")
 
         uncertainty_scores = aleatoric.squeeze(1)
+        uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
 
-        pmax = torch.argmax(predictions, dim=1).cpu()
-        lmax = torch.argmax(ground_truth, dim=1).cpu()
-        misclassified = pmax != lmax
-
-        uncertainty_labels = misclassified
-
-    print(uncertainty_scores.shape, uncertainty_labels.shape)
+    uncertainty_scores /= torch.max(uncertainty_scores)
 
     if metric == 'patch':
         pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(uncertainty_scores, uncertainty_labels)

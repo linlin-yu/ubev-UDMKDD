@@ -36,6 +36,7 @@ def train():
 
     if 'pretrained' in config:
         model.load(torch.load(config['pretrained']))
+        print(f"Loaded pretrained weights: {config['pretrained']}")
 
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")

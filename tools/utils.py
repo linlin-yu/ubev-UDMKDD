@@ -19,7 +19,7 @@ colors = torch.tensor([
     [0, 0, 0],
 ])
 
-n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
+n_classes, classes = 1, ["vehicle", "road", "lane", "background"]
 
 models = {
     'baseline': Baseline,
@@ -48,6 +48,8 @@ def get_loader_info(model, loader):
             oods.append(ood)
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
+
+            save_unc(model.epistemic(outs), ood, './test')
 
     return (torch.cat(predictions, dim=0),
             torch.cat(ground_truth, dim=0),
@@ -100,21 +102,25 @@ def save_unc(u_score, u_true, out_path):
 
 
 def save_pred(preds, labels, out_path, ego=False):
-    pred = map_rgb(preds[0], ego=ego)
-    label = map_rgb(labels[0], ego=ego)
+    if preds.shape[1] != 1:
+        pred = map_rgb(preds[0], ego=ego)
+        label = map_rgb(labels[0], ego=ego)
+        cv2.imwrite(os.path.join(out_path, "pred.png"), pred)
+        cv2.imwrite(os.path.join(out_path, "label.png"), label)
 
-    cv2.imwrite(os.path.join(out_path, "pred.png"), pred)
-    cv2.imwrite(os.path.join(out_path, "label.png"), label)
+        return pred, label
+    else:
+        cv2.imwrite(os.path.join(out_path, "pred.png"), preds[0, 0].detach().cpu().numpy() * 255)
+        cv2.imwrite(os.path.join(out_path, "label.png"), labels[0, 0].detach().cpu().numpy() * 255)
 
-    return pred, label
 
 
 def get_config(args):
     with open(args.config, 'r') as file:
         config = yaml.safe_load(file)
 
-    for key in config.keys():
-        if hasattr(args, key) and getattr(args, key) is not None:
-            config[key] = getattr(args, key)
+    for key, value in vars(args).items():
+        if value is not None:
+            config[key] = value
 
     return config
