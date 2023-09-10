@@ -18,16 +18,24 @@ class Model(nn.Module):
         super(Model, self).__init__()
 
         self.device = devices[0]
+        self.devices = devices
 
-        # self.weights = torch.tensor([3., 1., 2., 1.]).to(devices[0])
-        self.weights = None
+        self.weights = torch.tensor([3., 1., 2., 1.]).to(devices[0])
 
-        self.backbone = nn.DataParallel(backbones[backbone](n_classes=n_classes).to(devices[0]),
-                                        output_device=devices[0],
-                                        device_ids=devices)
+        self.backbone = None
 
         self.loss_type = loss_type
+        self.n_classes = n_classes
         self.opt = opt
+
+        self.create_backbone(backbone)
+
+    def create_backbone(self, backbone):
+        self.backbone = nn.DataParallel(
+            backbones[backbone](n_classes=self.n_classes).to(self.device),
+            output_device=self.device,
+            device_ids=self.devices
+        )
 
     @staticmethod
     def aleatoric(x): pass

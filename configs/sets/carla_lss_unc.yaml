@@ -1,0 +1,10 @@
+
+lss_uce:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: 'outputs/uncertainty/carla_lss_ce/19.pt'
+  label: "UCE"
+
+lss_focal:
+  config: 'configs/eval_carla_lss_evidential.yaml'
+  path: 'outputs/uncertainty/carla_lss_focal/19.pt'
+  label: "FOCAL"

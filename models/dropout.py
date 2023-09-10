@@ -5,9 +5,9 @@ from tools.loss import *
 from tools.uncertainty import *
 
 
-class Baseline(Model):
+class Dropout(Model):
     def __init__(self, *args, **kwargs):
-        super(Baseline, self).__init__(*args, **kwargs)
+        super(Dropout, self).__init__(*args, **kwargs)
 
     @staticmethod
     def aleatoric(logits):
@@ -32,4 +32,10 @@ class Baseline(Model):
             raise NotImplementedError()
 
     def forward(self, images, intrinsics, extrinsics):
-        return self.backbone(images, intrinsics, extrinsics)
+        if self.training:
+            return self.backbone(images, intrinsics, extrinsics)
+        else:
+            out = [self.backbone(images, intrinsics, extrinsics) for _ in range(20)]
+
+            return torch.mean(torch.stack(out), dim=0)
+

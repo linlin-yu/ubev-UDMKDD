@@ -1,15 +1,21 @@
 import torch
 import torch.distributions as D
 import torch.nn.functional as F
-from torch import nn
-from torch.autograd import Variable
+from tools.uncertainty import *
+import torch.nn as nn
 
-from tools.lib_focal_loss import FocalLoss
-from fvcore import nn
+from fvcore import nn as nnp
 
 
 def ce_loss(logits, target, weights=None):
     return F.cross_entropy(logits, target, weight=weights, reduction='none')
+
+
+def a_loss(logits, target, weights=None):
+    ce = ce_loss(logits, target, weights=weights)
+    al = entropy(logits)[:, 0, :, :].detach()
+
+    return ce * al
 
 
 def bce_loss(logits, target, weights=None):
@@ -30,7 +36,7 @@ def focal_loss(logits, target, weights=None, n=2):
 
 
 def sigmoid_focal_loss(logits, target, weights=None, n=2):
-    return nn.sigmoid_focal_loss(logits, target, gamma=n)
+    return nnp.sigmoid_focal_loss(logits, target, gamma=n)
 
 
 def uce_loss(alpha, y, weights=None):

@@ -2,8 +2,6 @@ from models.model import Model
 from tools.loss import *
 from tools.uncertainty import *
 
-import cv2
-
 
 class Evidential(Model):
     def __init__(self, *args, **kwargs):
@@ -37,7 +35,7 @@ class Evidential(Model):
     def loss_ood(
         self, alpha, y, ood,
         beta_lambda=.0005,
-        ood_lambda=.0005
+        ood_lambda=.1,
     ):
         A = uce_loss(alpha, y, self.weights)
 

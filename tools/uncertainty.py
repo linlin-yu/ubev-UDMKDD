@@ -36,11 +36,11 @@ def bal(b_i, b_j):
     return 1 - torch.abs(b_i - b_j) / (b_i + b_j + 1e-7)
 
 
-def entropy(pred):
+def entropy(pred, dim=1):
     class_num = 4
-    prob = torch.softmax(pred, dim=1)
+    prob = torch.softmax(pred, dim=dim)
     e = - prob * (torch.log(prob) / np.log(class_num))
-    u = torch.sum(e, dim=1, keepdim=True)
+    u = torch.sum(e, dim=dim, keepdim=True)
 
     return u
 

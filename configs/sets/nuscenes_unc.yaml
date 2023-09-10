@@ -1,0 +1,20 @@
+
+lss_uce:
+  config: 'configs/eval_nuscenes_lss_evidential.yaml'
+  path: 'outputs/uncertainty/nuscenes_lss_ce/19.pt'
+  label: "UCE LSS"
+
+lss_focal:
+  config: 'configs/eval_nuscenes_lss_evidential.yaml'
+  path: 'outputs/uncertainty/nuscenes_lss_focal/19.pt'
+  label: "FOCAL LSS"
+
+cvt_uce:
+  config: 'configs/eval_nuscenes_cvt_evidential.yaml'
+  path: 'outputs/uncertainty/nuscenes_cvt_ce/19.pt'
+  label: "UCE CVT"
+
+cvt_focal:
+  config: 'configs/eval_nuscenes_cvt_evidential.yaml'
+  path: 'outputs/uncertainty/nuscenes_cvt_focal/19.pt'
+  label: "FOCAL CVT"

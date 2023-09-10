@@ -93,7 +93,77 @@ def fill_convex_hull(image, points, fill_value=1.0):
     cv2.fillPoly(image, [pts], fill_value)
 
 
-def render_bev(box, bev, bev_start_position, bev_resolution):
+def get_image_points(locations, intrinsic, extrinsic, image_size=(224, 480)):
+    num_points = locations.shape[0]
+    points = np.hstack((locations, np.ones((num_points, 1))))
+
+    points_camera = np.dot(points, extrinsic.T)
+    points_camera = points_camera[:, [1, 2, 0]]
+    points_camera[:, 1] *= -1
+
+    points_img = np.dot(points_camera, intrinsic.T)
+
+    points_img[:, 0] /= points_img[:, 2] + 1e-8
+    points_img[:, 1] /= points_img[:, 2] + 1e-8
+
+    mask = (points_img[:, 0] >= 0) & (points_img[:, 0] <= 480) & \
+           (points_img[:, 1] >= 0) & (points_img[:, 1] <= 224) & \
+           (points_camera[:, 2] <= 0)
+
+    return points_img[:, 0:2], mask
+
+
+def adjust_carla(extrinsic):
+    adjust_roll = Rotation.from_euler('x', [-90], degrees=True)
+    adjust_yaw = Rotation.from_euler('z', [-90], degrees=True)
+    e = Rotation.from_matrix(extrinsic[:3, :3])
+
+    extrinsic[:3, :3] = (adjust_roll * e * adjust_yaw).as_matrix()
+
+
+def adjust_nuscenes(extrinsic):
+    adjust_roll = Rotation.from_euler('x', [90], degrees=True)
+    adjust_yaw = Rotation.from_euler('z', [90], degrees=True)
+    e = Rotation.from_matrix(extrinsic[:3, :3])
+
+    extrinsic[:3, :3] = (adjust_roll * e * adjust_yaw).as_matrix()
+
+
+def draw_cam(
+        translation, rotation, size,
+        intrinsic, extrinsic,
+        image_size=(224, 480),
+        dataset='carla'
+):
+    extrinsic = extrinsic.copy()
+    cam = np.zeros(image_size)
+    box = Box(translation, size, Quaternion(rotation))
+    corners = box.corners().T
+
+    if dataset == 'carla':
+        adjust_carla(extrinsic)
+    else:
+        adjust_nuscenes(extrinsic)
+
+    corners, mask = get_image_points(corners, intrinsic, extrinsic, image_size=image_size)
+
+    if len(corners[mask]) > 1:
+        fill_convex_hull(cam, corners)
+
+    return cam
+
+
+def draw_bev(
+        translation, rotation, size,
+        bev_resolution=(0.5, 0.5, 20.),
+        bev_start_position=(-49.75, -49.75, 0.),
+        bev_size=(200, 200),
+):
+    bev_resolution = np.array(bev_resolution)
+    bev_start_position = np.array(bev_start_position)
+    bev = np.zeros(bev_size)
+    box = Box(translation, size, Quaternion(rotation))
+
     pts = box.bottom_corners()[:2].T
     pts = np.round((pts - bev_start_position[:2] + bev_resolution[:2] / 2.0)
                    / bev_resolution[:2]).astype(np.int32)
@@ -101,63 +171,7 @@ def render_bev(box, bev, bev_start_position, bev_resolution):
     pts[:, [1, 0]] = pts[:, [0, 1]]
     cv2.fillPoly(bev, [pts], 1.0)
 
-
-def get_image_points(locations, K, w2c):
-    num_points = locations.shape[0]
-    points = np.hstack((locations, np.ones((num_points, 1))))
-
-    points_camera = np.dot(points, w2c.T)
-    points_camera = points_camera[:, [1, 2, 0]]
-    points_camera[:, 1] *= -1
-
-    points_img = np.dot(points_camera, K.T)
-
-    points_img[:, 0] /= points_img[:, 2]
-    points_img[:, 1] /= points_img[:, 2]
-
-    return points_img[:, 0:2]
-
-
-def render_ood(
-        translation,
-        rotation,
-        size,
-        intrinsic,
-        extrinsic,
-        bev_resolution,
-        bev_start_position,
-        image_size=(224, 480),
-        bev_size=(200, 200),
-        type='carla'
-):
-    extrinsic = extrinsic.copy()
-    bev_ood = np.zeros(bev_size)
-    cam_ood = np.zeros(image_size)
-
-    box = Box(translation, size, Quaternion(rotation))
-    render_bev(box, bev_ood, bev_start_position, bev_resolution)
-
-    corners = box.corners().T
-
-    if type == 'carla':
-        adjust_roll = Rotation.from_euler('x', [-90], degrees=True)
-        adjust_yaw = Rotation.from_euler('z', [-90], degrees=True)
-
-        e = Rotation.from_matrix(extrinsic[:3, :3])
-        extrinsic[:3, :3] = (adjust_roll * e * adjust_yaw).as_matrix()
-    else:
-        adjust_roll = Rotation.from_euler('x', [90], degrees=True)
-        adjust_yaw = Rotation.from_euler('z', [90], degrees=True)
-
-        e = Rotation.from_matrix(extrinsic[:3, :3])
-        extrinsic[:3, :3] = (adjust_roll * e * adjust_yaw).as_matrix()
-
-    r = Rotation.from_matrix(extrinsic[:3, :3])
-
-    corners = get_image_points(corners, intrinsic, extrinsic)
-    fill_convex_hull(cam_ood, corners)
-
-    return bev_ood, cam_ood
+    return bev
 
 
 def find_bounding_boxes(mask):

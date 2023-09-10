@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from sklearn.metrics import *
 
+np.random.seed(seed=0)
+
 
 def patch_metrics(uncertainty_scores, uncertainty_labels):
     thresholds = np.linspace(0, 1, 10)
@@ -9,11 +11,25 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
     agcs = []
     ugis = []
 
+    stats = [
+        [],
+        [],
+        [],
+        [],
+    ]
+
     for threshold in thresholds:
-        pavpu, agc, ugi = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=threshold)
+        pavpu, agc, ugi, ac, au, ic, iu = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=threshold)
         pavpus.append(pavpu)
         agcs.append(agc)
         ugis.append(ugi)
+
+        stats[0].append(ac)
+        stats[1].append(au)
+        stats[2].append(ic)
+        stats[3].append(iu)
+
+    # print(stats)
 
     return pavpus, agcs, ugis, thresholds, auc(thresholds, pavpus), auc(thresholds, agcs), auc(thresholds, ugis)
 
@@ -49,19 +65,12 @@ def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0
 
     pavpu = (ac + iu) / (ac + au + ic + iu + 1e-10)
 
-    return pavpu.item(), a_given_c.item(), u_given_i.item()
+    return pavpu.item(), a_given_c.item(), u_given_i.item(), ac.item(), au.item(), ic.item(), iu.item()
 
 
-def roc_pr(uncertainty_scores, uncertainty_labels, sample_size=1_000_000):
+def roc_pr(uncertainty_scores, uncertainty_labels):
     y_true = uncertainty_labels.flatten()
     y_score = uncertainty_scores.flatten()
-
-    print(y_score.shape)
-
-    indices = np.random.choice(y_true.shape[0], sample_size, replace=False)
-
-    y_true = y_true[indices]
-    y_score = y_score[indices]
 
     pr, rec, _ = precision_recall_curve(y_true, y_score)
     fpr, tpr, _ = roc_curve(y_true, y_score)

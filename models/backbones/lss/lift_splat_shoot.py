@@ -5,6 +5,7 @@ import torch
 from efficientnet_pytorch import EfficientNet
 from torch import nn
 from torchvision.models.resnet import resnet18
+from models.gpn.density import Density, Evidence
 
 
 def inverse(x):
@@ -79,7 +80,7 @@ class Up(nn.Module):
 
 
 class CamEncode(nn.Module):
-    def __init__(self, D, C, use_seg=False):
+    def __init__(self, D, C):
         super(CamEncode, self).__init__()
         self.D = D
         self.C = C
@@ -89,7 +90,7 @@ class CamEncode(nn.Module):
         self.up1 = Up(320 + 112, 512)
         self.depthnet = nn.Conv2d(512, self.D + self.C, kernel_size=1, padding=0)
 
-    def get_depth_dist(self, x, eps=1e-20):
+    def get_depth_dist(self, x):
         return x.softmax(dim=1)
 
     def get_depth_feat(self, x):
@@ -166,16 +167,78 @@ class BevEncode(nn.Module):
         return x
 
 
+class BevEncodePostnet(nn.Module):
+    def __init__(self, inC, outC):
+        super(BevEncodePostnet, self).__init__()
+
+        self.outC = outC
+
+        trunk = resnet18(zero_init_residual=True)
+        self.conv1 = nn.Conv2d(inC, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = trunk.bn1
+        self.relu = trunk.relu
+
+        self.layer1 = trunk.layer1
+        self.layer2 = trunk.layer2
+        self.layer3 = trunk.layer3
+
+        self.latent_size = 16
+
+        self.up1 = Up(64 + 256, 256, scale_factor=4)
+        self.up2 = nn.Sequential(
+            nn.Upsample(scale_factor=2, mode='bilinear',
+                        align_corners=True),
+            nn.Conv2d(256, self.latent_size, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(self.latent_size),
+            nn.ReLU(inplace=True),
+        )
+
+        self.flow = Density(dim_latent=self.latent_size, num_mixture_elements=outC)
+        self.evidence = Evidence(scale='latent-new')
+
+        self.last = nn.Conv2d(outC, outC, kernel_size=3, padding=1)
+
+        self.p_c = torch.tensor([.015, .2, .05, .735])
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+
+        x1 = self.layer1(x)
+        x = self.layer2(x1)
+        x = self.layer3(x)
+
+        x = self.up1(x, x1)
+        x = self.up2(x)
+
+        x = x.permute(0, 2, 3, 1).to(x.device)
+        x = x.reshape(-1, self.latent_size)
+
+        self.p_c = self.p_c.to(x.device)
+
+        log_q_ft_per_class = self.flow(x) + self.p_c.view(1, -1).log()
+
+        beta = self.evidence(
+            log_q_ft_per_class, dim=self.latent_size,
+            further_scale=2.0).exp()
+
+        beta = beta.reshape(-1, 200, 200, self.outC).permute(0, 3, 1, 2).contiguous()
+        beta = self.last(beta.log()).exp()
+
+        return beta + 1
+
+
 class LiftSplatShoot(nn.Module):
     def __init__(
             self,
-            x_bound=[-50.0, 50.0, 0.5],
-            y_bound=[-50.0, 50.0, 0.5],
-            z_bound=[-10.0, 10.0, 20.0],
-            d_bound=[4.0, 45.0, 1.0],
+            x_bound=(-50.0, 50.0, 0.5),
+            y_bound=(-50.0, 50.0, 0.5),
+            z_bound=(-10.0, 10.0, 20.0),
+            d_bound=(4.0, 45.0, 1.0),
             final_dim=(224, 480),
             n_classes=4,
-            use_seg=False
     ):
         super(LiftSplatShoot, self).__init__()
 
@@ -196,7 +259,7 @@ class LiftSplatShoot(nn.Module):
         self.camC = 64
         self.frustum = self.create_frustum()
         self.D, _, _, _ = self.frustum.shape
-        self.camencode = CamEncode(self.D, self.camC, use_seg=use_seg)
+        self.camencode = CamEncode(self.D, self.camC)
         self.bevencode = BevEncode(inC=self.camC, outC=self.outC)
 
     def create_frustum(self):

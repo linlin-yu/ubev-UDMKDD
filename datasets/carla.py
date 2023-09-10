@@ -17,6 +17,7 @@ torch.manual_seed(0)
 class CarlaDataset(torch.utils.data.Dataset):
     def __init__(self, data_path, is_train):
         self.is_train = is_train
+        self.return_info = False
 
         self.data_path = data_path
 
@@ -97,8 +98,7 @@ class CarlaDataset(torch.utils.data.Dataset):
         empty[vehicles == 1] = 0
         empty[road == 1] = 0
         empty[lane == 1] = 0
-        # label = np.stack((vehicles, road, lane, empty))
-        label = np.stack((vehicles,))
+        label = np.stack((vehicles, road, lane, empty))
 
         return torch.tensor(label.copy()), torch.tensor(ood)
 
@@ -113,12 +113,19 @@ class CarlaDataset(torch.utils.data.Dataset):
         images, intrinsics, extrinsics = self.get_input_data(index, agent_path)
         labels, ood = self.get_label(index, agent_path)
 
+        if self.return_info:
+            return images, intrinsics, extrinsics, labels, ood, {
+                'agent_number': agent_number,
+                'agent_path': agent_path,
+                'index': index
+            }
+
         return images, intrinsics, extrinsics, labels, ood
 
 
 def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
     if ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "val_aug"), True)
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
     else:
         train_data = CarlaDataset(os.path.join(dataroot, "train"), True)

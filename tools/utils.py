@@ -9,8 +9,12 @@ from tqdm import tqdm
 
 from datasets.carla import compile_data as compile_data_carla
 from datasets.nuscenes import compile_data as compile_data_nuscenes
+
 from models.baseline import Baseline
 from models.evidential import Evidential
+from models.ensemble import Ensemble
+from models.dropout import Dropout
+from models.postnet import Postnet
 
 colors = torch.tensor([
     [0, 0, 255],
@@ -19,11 +23,14 @@ colors = torch.tensor([
     [0, 0, 0],
 ])
 
-n_classes, classes = 1, ["vehicle", "road", "lane", "background"]
+n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 
 models = {
     'baseline': Baseline,
-    'evidential': Evidential
+    'evidential': Evidential,
+    'ensemble': Ensemble,
+    'dropout': Dropout,
+    'postnet': Postnet,
 }
 
 datasets = {
@@ -97,7 +104,7 @@ def save_unc(u_score, u_true, out_path):
 
     cv2.imwrite(
         os.path.join(out_path, "u_score.png"),
-        cv2.cvtColor((plt.cm.jet(u_score[0][0]) * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+        cv2.cvtColor((plt.cm.inferno(u_score[0][0]) * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
     )
 
 

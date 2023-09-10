@@ -1,11 +1,24 @@
-from models.model import Model
+from models.backbones.lss.lift_splat_shoot import BevEncodePostnet
+
+from models.model import *
 from tools.loss import *
 from tools.uncertainty import *
+import torch.nn as nn
 
 
-class Evidential(Model):
+class Postnet(Model):
     def __init__(self, *args, **kwargs):
-        super(Evidential, self).__init__(*args, **kwargs)
+        super(Postnet, self).__init__(*args, **kwargs)
+
+    def create_backbone(self, backbone):
+        self.backbone = nn.DataParallel(
+            backbones[backbone](n_classes=self.n_classes).to(self.device),
+            output_device=self.device,
+            device_ids=self.devices
+        )
+
+        if backbone == 'lss':
+            self.backbone.module.bevencode = BevEncodePostnet(inC=self.backbone.module.camC, outC=self.backbone.module.outC).to(self.device)
 
     @staticmethod
     def aleatoric(alpha):

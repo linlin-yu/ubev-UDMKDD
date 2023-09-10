@@ -28,15 +28,31 @@ def train():
         loss_type=config['loss']
     )
 
+    if config['loss'] == 'focal':
+        config['learning_rate'] *= 4
+
     model.opt = torch.optim.Adam(
         model.parameters(),
         lr=config['learning_rate'],
         weight_decay=config['weight_decay']
     )
 
+    print("Using scheduler")
+
     if 'pretrained' in config:
         model.load(torch.load(config['pretrained']))
         print(f"Loaded pretrained weights: {config['pretrained']}")
+        scheduler = None
+    else:
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            model.opt,
+            div_factor=10,
+            pct_start=.3,
+            final_div_factor=10,
+            max_lr=config['learning_rate'],
+            epochs=config['num_epochs'],
+            steps_per_epoch=len(train_loader.dataset) // config['batch_size']
+        )
 
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
@@ -69,6 +85,9 @@ def train():
 
             step += 1
 
+            if scheduler is not None:
+                scheduler.step()
+
             if step % 10 == 0:
                 print(f"[{epoch}] {step}", loss.item())
 
@@ -89,7 +108,16 @@ def train():
 
         model.eval()
 
-        predictions, ground_truth, _, _, _ = get_loader_info(model, val_loader)
+        predictions, ground_truth, oods, aleatoric, epistemic = get_loader_info(model, val_loader)
+
+        if is_ood:
+            uncertainty_scores = epistemic.squeeze(1)
+            uncertainty_labels = oods
+            _, _, _, _, auroc, aupr, _ = roc_pr(uncertainty_scores, uncertainty_labels)
+
+            print(f"OOD Detection: AUROC - {auroc}, AUPR - {aupr}")
+            writer.add_scalar(f'val/ood_auroc', auroc, epoch)
+            writer.add_scalar(f'val/ood_aupr', aupr, epoch)
 
         iou = get_iou(predictions, ground_truth)
 
@@ -111,6 +139,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--split', default="trainval", required=False, type=str)
     parser.add_argument('-p', '--pretrained', required=False, type=str)
     parser.add_argument('-o', '--ood', default=False, action='store_true')
+    parser.add_argument('-e', '--num_epochs', required=False, type=int)
     parser.add_argument('--loss', default="ce", required=False, type=str)
 
     args = parser.parse_args()

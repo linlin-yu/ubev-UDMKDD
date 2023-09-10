@@ -177,9 +177,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         empty[road == 1] = 0
         empty[lane == 1] = 0
 
-        # labels = np.stack((vehicles, road, lane, empty))
-        # labels = np.stack((vehicles, empty + road + lane))
-        labels = np.stack((vehicles, ))
+        labels = np.stack((vehicles, road, lane, empty))
         labels = np.flip(labels, axis=(1, 2))
 
         return torch.tensor(labels.copy())
