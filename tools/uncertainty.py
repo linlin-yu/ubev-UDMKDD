@@ -38,9 +38,12 @@ def bal(b_i, b_j):
 
 def entropy(pred, dim=1):
     class_num = 4
-    prob = torch.softmax(pred, dim=dim)
-    e = - prob * (torch.log(prob) / np.log(class_num))
+    prob = torch.softmax(pred, dim=dim) + 1e-10
+
+    e = -prob * (torch.log(prob) / np.log(class_num))
     u = torch.sum(e, dim=dim, keepdim=True)
+    if torch.any(torch.isnan(u)):
+        print("NAN")
 
     return u
 

@@ -7,9 +7,15 @@ class Evidential(Model):
     def __init__(self, *args, **kwargs):
         super(Evidential, self).__init__(*args, **kwargs)
 
+        self.beta_lambda = 0.0005
+        print(f"BETA LAMBDA: {self.beta_lambda}")
+
     @staticmethod
     def aleatoric(alpha):
-        return dissonance(alpha)
+        soft = Evidential.activate(alpha)
+        max_soft, hard = soft.max(dim=1)
+        return (1 - max_soft[:, None, :, :]) / torch.max(1 - max_soft[:, None, :, :])
+        # return dissonance(alpha)
 
     @staticmethod
     def epistemic(alpha):
@@ -19,7 +25,7 @@ class Evidential(Model):
     def activate(alpha):
         return alpha / torch.sum(alpha, dim=1, keepdim=True)
 
-    def loss(self, alpha, y, beta_lambda=.0005):
+    def loss(self, alpha, y):
         if self.loss_type == 'ce':
             A = uce_loss(alpha, y, weights=self.weights)
         elif self.loss_type == 'focal':
@@ -27,8 +33,8 @@ class Evidential(Model):
         else:
             raise NotImplementedError()
 
-        if beta_lambda > 0:
-            A += entropy_reg(alpha, beta_lambda)
+        if self.beta_lambda > 0:
+            A += entropy_reg(alpha, self.beta_lambda)
 
         return A.mean()
 
@@ -43,7 +49,7 @@ class Evidential(Model):
             A += entropy_reg(alpha, beta_reg=beta_lambda)
 
         A = A[(1 - ood).unsqueeze(1).bool()].mean()
-        
+
         if ood_lambda > 0:
             A += ood_reg(alpha, ood) * ood_lambda
 

@@ -29,7 +29,7 @@ class Evidence(nn.Module):
         if self.tau is not None:
             scaled_log_q = self.tau * (scaled_log_q / self.tau).tanh()
 
-        scaled_log_q = scaled_log_q.clamp(min=-30.0, max=30.0)
+        scaled_log_q = scaled_log_q.clamp(min=-10.0, max=10.0)
 
         return scaled_log_q
 

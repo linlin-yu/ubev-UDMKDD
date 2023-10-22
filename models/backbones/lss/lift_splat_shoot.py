@@ -227,7 +227,7 @@ class BevEncodePostnet(nn.Module):
         beta = beta.reshape(-1, 200, 200, self.outC).permute(0, 3, 1, 2).contiguous()
         beta = self.last(beta.log()).exp()
 
-        return beta + 1
+        return beta
 
 
 class LiftSplatShoot(nn.Module):

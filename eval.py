@@ -43,8 +43,9 @@ def eval(config, is_ood, set, split, dataroot):
 
     model.load(torch.load(config['pretrained']))
     model.eval()
+    model.training = False
 
-    print("--------------------------------------------------")
+    print("--------------------------------------------------") 
     print(f"Running eval on {split}")
     print(f"Using GPUS: {config['gpus']}")
     print(f"Loader: {len(loader.dataset)}")
@@ -71,7 +72,7 @@ def eval(config, is_ood, set, split, dataroot):
             epistemic.append(model.epistemic(outs))
 
             if is_ood:
-                save_unc(model.epistemic(outs), ood, config['logdir'])
+                save_unc(model.epistemic(outs)/model.epistemic(outs).max(), ood, config['logdir'])
             else:
                 save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1), config['logdir'])
 
@@ -131,7 +132,6 @@ if __name__ == "__main__":
 
         uncertainty_scores = aleatoric.squeeze(1)
         uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
-    print(uncertainty_scores.mean())
 
     if metric == 'patch':
         pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(uncertainty_scores, uncertainty_labels)
@@ -157,6 +157,8 @@ if __name__ == "__main__":
 
         save_path = os.path.join(config['logdir'], f"patch_{'o' if is_ood else 'm'}_{name}.png")
 
+        pm = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=uncertainty_scores.mean())
+        print(f"AVG-PAvPU: {pm[0]:.3f}, AVG-p(accurate|certain): {pm[1]:.3f}, AVG-P(uncertain|inaccurate): {pm[2]:.3f}")
         print(f"AU-PAvPU: {au_pavpu:.3f}, AU-p(accurate|certain): {au_agc:.3f}, AU-P(uncertain|inaccurate): {au_ugi:.3f}")
     elif metric == "rocpr":
         fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)

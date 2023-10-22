@@ -2,6 +2,7 @@ import torch.nn as nn
 
 from models.backbones.cvt.decoder import *
 from models.backbones.cvt.encoder import *
+from models.gpn.density import Density, Evidence
 
 
 class Shrink(nn.Module):
@@ -20,6 +21,48 @@ class Shrink(nn.Module):
         return x
 
 
+class Post(nn.Module):
+    def __init__(
+            self, out_channels,
+            dim_last: int = 64,
+            n_classes: int = 4,
+    ):
+        super().__init__()
+        self.latent_size = 16
+
+        self.flow = Density(dim_latent=self.latent_size, num_mixture_elements=n_classes)
+        self.evidence = Evidence(scale='latent-new')
+
+        self.to_logits = nn.Sequential(
+            nn.Conv2d(out_channels, self.latent_size, 3, padding=1, bias=False),
+            nn.BatchNorm2d(self.latent_size),
+            nn.ReLU(inplace=True))
+
+        self.n_classes = n_classes
+        self.last = nn.Conv2d(n_classes, n_classes, 1)
+        self.p_c = torch.tensor([.015, .2, .05, .735])
+
+    def forward(self, x):
+        x = self.to_logits(x)
+
+        x = x.permute(0, 2, 3, 1).to(x.device)
+        x = x.reshape(-1, self.latent_size)
+
+        self.p_c = self.p_c.to(x.device)
+
+        log_q_ft_per_class = self.flow(x) + self.p_c.view(1, -1).log()
+
+        beta = self.evidence(
+            log_q_ft_per_class, dim=self.latent_size,
+            further_scale=2.0).exp()
+
+        beta = beta.reshape(-1, 200, 200, self.n_classes).permute(0, 3, 1, 2).contiguous()
+        beta = self.last(beta.log()).exp()
+        alpha = beta + 1
+
+        return alpha
+
+
 class CrossViewTransformer(nn.Module):
     def __init__(
         self,
@@ -36,8 +79,6 @@ class CrossViewTransformer(nn.Module):
             nn.BatchNorm2d(dim_last),
             nn.ReLU(inplace=True),
             nn.Conv2d(dim_last, n_classes, 1))
-
-        self.drop = False
 
     def forward(self, images, intrinsics, extrinsics):
         x, atts = self.encoder(images, intrinsics, extrinsics)

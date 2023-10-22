@@ -35,6 +35,7 @@ class Dropout(Model):
         if self.training:
             return self.backbone(images, intrinsics, extrinsics)
         else:
+            self.train()
             out = [self.backbone(images, intrinsics, extrinsics) for _ in range(20)]
 
             return torch.mean(torch.stack(out), dim=0)

@@ -60,6 +60,7 @@ class Fiery(nn.Module):
         self.depth_channels, _, _, _ = self.frustum.shape
 
         self.bev_size = (200, 200)
+        self.n_classes = n_classes
 
         self.encoder = Encoder(C=self.encoder_out_channels, D=self.depth_channels, downsample=self.encoder_downsample)
         self.decoder = Decoder(in_channels=self.encoder_out_channels, n_classes=n_classes)

@@ -1,4 +1,6 @@
+from models.backbones.fiery.decoder import DecoderPostnet
 from models.backbones.lss.lift_splat_shoot import BevEncodePostnet
+from models.backbones.cvt.cross_view_transformer import Post
 
 from models.model import *
 from tools.loss import *
@@ -19,6 +21,10 @@ class Postnet(Model):
 
         if backbone == 'lss':
             self.backbone.module.bevencode = BevEncodePostnet(inC=self.backbone.module.camC, outC=self.backbone.module.outC).to(self.device)
+        if backbone == 'fiery':
+            self.backbone.module.decoder = DecoderPostnet(in_channels=self.backbone.module.encoder_out_channels, n_classes=self.backbone.module.n_classes).to(self.device)
+        if backbone == 'cvt':
+            self.backbone.module.to_logits = Post(self.backbone.module.decoder.out_channels).to(self.device)
 
     @staticmethod
     def aleatoric(alpha):
@@ -77,7 +83,7 @@ class Postnet(Model):
         return outs, preds, loss
 
     def forward(self, images, intrinsics, extrinsics, limit=None):
-        evidence = self.backbone(images, intrinsics, extrinsics).relu()
+        evidence = self.backbone(images, intrinsics, extrinsics)
 
         if limit is not None:
             evidence = evidence.clamp(max=limit)

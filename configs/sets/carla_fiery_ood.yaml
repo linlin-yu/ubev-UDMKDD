@@ -1,0 +1,57 @@
+
+baseline_ce:
+  config: 'configs/eval_carla_fiery_baseline.yaml'
+  path: 'outputs/carla/fiery_baseline/19.pt'
+  label: "Baseline CE"
+
+baseline_focal:
+  config: 'configs/eval_carla_fiery_baseline.yaml'
+  path: 'outputs/carla/fiery_baseline_focal/19.pt'
+  label: "Baseline Focal"
+
+evidential_uce:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/carla/fiery_evidential/19.pt'
+  label: "Evidential UCE"
+
+evidential_ufocal:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/carla/fiery_evidential_focal/19.pt'
+  label: "Evidential UFocal"
+
+postnet_uce:
+  config: 'configs/eval_carla_fiery_postnet.yaml'
+  path: 'outputs/carla/fiery_postnet/19.pt'
+  label: "Postnet UCE"
+
+postnet_ufocal:
+  config: 'configs/eval_carla_fiery_postnet.yaml'
+  path: 'outputs/carla/fiery_postnet_focal/19.pt'
+  label: "Postnet UFocal"
+
+dropout_ce:
+  config: 'configs/eval_carla_fiery_dropout.yaml'
+  path: 'outputs/carla/fiery_baseline/19.pt'
+  label: "Dropout CE"
+
+dropout_focal:
+  config: 'configs/eval_carla_fiery_dropout.yaml'
+  path: 'outputs/carla/fiery_baseline_focal/19.pt'
+  label: "Dropout Focal"
+
+ensemble_ce:
+  config: 'configs/eval_carla_fiery_ensemble.yaml'
+  path: 'outputs/carla/fiery_ensemble/19.pt'
+  label: "Ensemble CE"
+
+fiery_r_uce:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/carla/fiery_aug_xl/19.pt'
+  label: "FIERY UCE REG"
+
+fiery_rf_uce:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/carla/fiery_aug_f_xl/19.pt'
+  label: "FIERY FOCAL UCE REG"
+
+  

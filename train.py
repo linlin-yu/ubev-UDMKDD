@@ -2,8 +2,6 @@ import argparse
 from time import time
 
 from tensorboardX import SummaryWriter
-from tqdm import tqdm
-
 from tools.metrics import *
 from tools.utils import *
 
@@ -11,6 +9,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 torch.manual_seed(0)
+np.random.seed(0)
 
 
 def train():

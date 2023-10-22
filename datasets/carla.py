@@ -1,17 +1,9 @@
 import json
 import math
 import os
-import warnings
 
-import numpy as np
-import torch
 import torchvision
-from PIL import Image
-from scipy.spatial.transform import Rotation
-
 from tools.geometry import *
-
-torch.manual_seed(0)
 
 
 class CarlaDataset(torch.utils.data.Dataset):
@@ -124,16 +116,22 @@ class CarlaDataset(torch.utils.data.Dataset):
 
 
 def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
+    torch.manual_seed(1)
+    np.random.seed(1)
+
     if ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug_quad"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
     else:
         train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "val"), False)
 
     if version == 'mini':
-        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=128)
-        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=128)
+        g = torch.Generator()
+        g.manual_seed(0)
+
+        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=128, generator=g)
+        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=128, generator=g)
 
         train_loader = torch.utils.data.DataLoader(
             train_data,
