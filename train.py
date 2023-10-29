@@ -53,6 +53,10 @@ def train():
             steps_per_epoch=len(train_loader.dataset) // config['batch_size']
         )
 
+    if 'gamma' in config:
+        model.gamma = config['gamma']
+        print(f"GAMMA: {model.gamma}")
+
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
     print(f"Train loader: {len(train_loader.dataset)}")
@@ -140,6 +144,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
     parser.add_argument('--loss', default="ce", required=False, type=str)
+    parser.add_argument('--gamma', required=False, type=float)
 
     args = parser.parse_args()
 
@@ -149,6 +154,8 @@ if __name__ == "__main__":
 
     if config['backbone'] == 'cvt':
         torch.backends.cudnn.enabled = False
+    else:
+        torch.backends.cudnn.enabled = True
 
     split = args.split
     dataroot = f"../data/{config['dataset']}"

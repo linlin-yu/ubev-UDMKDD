@@ -23,14 +23,25 @@ def bce_loss(logits, target, weights=None):
 
 
 def focal_loss(logits, target, weights=None, n=2):
-    target = target.argmax(dim=1)
-    log_p = F.log_softmax(logits, dim=1)
+    if logits.ndim > 2:
+        # (N, C, d1, d2, ..., dK) --> (N * d1 * ... * dK, C)
+        c = logits.shape[1]
+        x = logits.permute(0, *range(2, logits.ndim), 1).reshape(-1, c)
+        # (N, d1, d2, ..., dK) --> (N * d1 * ... * dK,)
+        target = target.argmax(dim=1).long()
+        target = target.view(-1)
 
+    log_p = F.log_softmax(x, dim=-1)
     ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
-    log_pt = log_p.gather(1, target[None])
+
+    all_rows = torch.arange(len(x))
+    log_pt = log_p[all_rows, target]
 
     pt = log_pt.exp()
-    loss = ce * (1 - pt + 1e-8) ** n
+    focal_term = (1 - pt) ** n
+
+    # the full loss: -alpha * ((1 - pt)^gamma) * log(pt)
+    loss = focal_term * ce
 
     return loss
 

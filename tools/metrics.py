@@ -6,7 +6,8 @@ np.random.seed(seed=0)
 
 
 def patch_metrics(uncertainty_scores, uncertainty_labels):
-    thresholds = np.linspace(0, 1, 10)
+    # thresholds = np.linspace(0, 1, 10)
+    thresholds = np.array([0., .1, .2, .3, .4, .5, .6, .7, .8, .9, 1.])
 
     pavpus = []
     agcs = []
@@ -16,12 +17,13 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
     stats = [[], [], [], []]
 
     for thresh in thresholds:
-        pavpu, agc, ugi, ac, au, ic, iu = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=torch.quantile(uncertainty_scores, thresh).item())
-        # pavpu, agc, ugi, ac, au, ic, iu = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=torch.quantile(uncertainty_scores, thresh).item())
+        perc = torch.quantile(uncertainty_scores, thresh).item()
+        pavpu, agc, ugi, ac, au, ic, iu = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=perc)
+        # pavpu, agc, ugi, ac, au, ic, iu = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=thresh)
         pavpus.append(pavpu)
         agcs.append(agc)
         ugis.append(ugi)
-        percs.append(torch.quantile(uncertainty_scores, thresh).item())
+        percs.append(perc)
 
         stats[0].append(ac)
         stats[1].append(au)

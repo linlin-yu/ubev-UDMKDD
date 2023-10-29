@@ -97,6 +97,7 @@ if __name__ == "__main__":
         with open(set[name]['config'], 'r') as file:
             config = yaml.safe_load(file)
             config['pretrained'] = set[name]['path']
+            config['logdir'] = f"outputs/graph/{name}"
             print(config['pretrained'])
             if args.gpus is not None:
                 config['gpus'] = [int(i) for i in args.gpus]
@@ -121,6 +122,12 @@ if __name__ == "__main__":
         if metric == 'patch':
             pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(uncertainty_scores,
                                                                                   uncertainty_labels)
+
+            perc = torch.quantile(uncertainty_scores,1. - uncertainty_labels.float().mean()).item()
+            pm = calculate_pavpu(uncertainty_scores, uncertainty_labels,
+                                 uncertainty_threshold=uncertainty_scores.mean())
+            print(
+                f"P-{perc:.3f}-PAvPU: {pm[0]:.3f}, P-{perc:.3f}-p(accurate|certain): {pm[1]:.3f}, P-{perc:.3f}-P(uncertain|inaccurate): {pm[2]:.3f}")
 
             ax1.plot(thresholds, agc, '.-', label=f"{label}: {au_agc:.3f}")
             ax2.plot(thresholds, ugi, '.-', label=f"{label}: {au_ugi:.3f}")

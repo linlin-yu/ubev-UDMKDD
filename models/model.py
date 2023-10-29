@@ -13,7 +13,6 @@ backbones = {
 
 
 class Model(nn.Module):
-
     def __init__(self, devices, backbone='fiery', n_classes=4, opt=None, loss_type='focal'):
         super(Model, self).__init__()
 
@@ -27,6 +26,7 @@ class Model(nn.Module):
         self.loss_type = loss_type
         self.n_classes = n_classes
         self.opt = opt
+        self.gamma = 2
 
         self.create_backbone(backbone)
 
@@ -39,7 +39,7 @@ class Model(nn.Module):
 
     @staticmethod
     def aleatoric(x): pass
-
+    
     @staticmethod
     def epistemic(x): pass
 

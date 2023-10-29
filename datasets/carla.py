@@ -60,6 +60,7 @@ class CarlaDataset(torch.utils.data.Dataset):
                 images.append(normalized_image)
                 intrinsics.append(intrinsic)
                 extrinsics.append(torch.tensor(extrinsic))
+                image.close()
 
         images, intrinsics, extrinsics = (torch.stack(images, dim=0),
                                           torch.stack(intrinsics, dim=0),

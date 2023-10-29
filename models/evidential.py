@@ -29,7 +29,7 @@ class Evidential(Model):
         if self.loss_type == 'ce':
             A = uce_loss(alpha, y, weights=self.weights)
         elif self.loss_type == 'focal':
-            A = u_focal_loss(alpha, y, weights=self.weights, n=2)
+            A = u_focal_loss(alpha, y, weights=self.weights, n=self.gamma)
         else:
             raise NotImplementedError()
 

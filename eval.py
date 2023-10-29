@@ -60,6 +60,7 @@ def eval(config, is_ood, set, split, dataroot):
     oods = []
     aleatoric = []
     epistemic = []
+    logits = []
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
@@ -70,6 +71,7 @@ def eval(config, is_ood, set, split, dataroot):
             oods.append(ood)
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
+            logits.append(outs)
 
             if is_ood:
                 save_unc(model.epistemic(outs)/model.epistemic(outs).max(), ood, config['logdir'])
@@ -82,7 +84,8 @@ def eval(config, is_ood, set, split, dataroot):
             torch.cat(ground_truth, dim=0),
             torch.cat(oods, dim=0),
             torch.cat(aleatoric, dim=0),
-            torch.cat(epistemic, dim=0))
+            torch.cat(epistemic, dim=0),
+            torch.cat(logits, dim=0))
 
 
 if __name__ == "__main__":
@@ -114,7 +117,7 @@ if __name__ == "__main__":
     dataroot = f"../data/{config['dataset']}"
     name = f"{config['backbone']}_{config['type']}"
 
-    predictions, ground_truth, oods, aleatoric, epistemic = eval(config, is_ood, set, split, dataroot)
+    predictions, ground_truth, oods, aleatoric, epistemic, logits = eval(config, is_ood, set, split, dataroot)
 
     if args.save:
         torch.save(predictions, os.path.join(config['logdir'], 'preds.pt'))
@@ -122,6 +125,7 @@ if __name__ == "__main__":
         torch.save(oods, os.path.join(config['logdir'], 'oods.pt'))
         torch.save(aleatoric, os.path.join(config['logdir'], 'aleatoric.pt'))
         torch.save(epistemic, os.path.join(config['logdir'], 'epistemic.pt'))
+        torch.save(logits, os.path.join(config['logdir'], 'logits.pt'))
 
     if is_ood:
         uncertainty_scores = epistemic.squeeze(1)
