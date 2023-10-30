@@ -48,9 +48,6 @@ def train():
         weights=weights
     )
 
-    if config['loss'] == 'focal':
-        config['learning_rate'] *= 4
-
     model.opt = torch.optim.Adam(
         model.parameters(),
         lr=config['learning_rate'],
