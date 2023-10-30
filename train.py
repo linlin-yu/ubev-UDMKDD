@@ -13,18 +13,39 @@ np.random.seed(0)
 
 
 def train():
+    n_classes = config['n_classes']
+
+    if n_classes == 4:
+        classes = ["vehicle", "road", "lane", "background"]
+        if 'weights' in config:
+            weights = torch.tensor(config['weights'])
+        else:
+            weights = torch.tensor([3., 1., 2., 1.])
+    elif n_classes == 2:
+        classes = ["vehicle", "background"]
+        if 'weights' in config:
+            weights = torch.tensor(config['weights'])
+        else:
+            weights = torch.tensor([0.25, 0.75])
+    else:
+        raise NotImplementedError
+
+    print(f"Class weights: {weights}")
+
     train_loader, val_loader = datasets[config['dataset']](
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=is_ood
+        ood=is_ood,
+        n_classes=n_classes
     )
 
     model = models[config['type']](
         config['gpus'],
         backbone=config['backbone'],
         n_classes=n_classes,
-        loss_type=config['loss']
+        loss_type=config['loss'],
+        weights=weights
     )
 
     if config['loss'] == 'focal':
@@ -145,6 +166,8 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
+    parser.add_argument('--n_classes', default=4, required=False, type=int)
+    parser.add_argument('--weights', nargs='+', required=False, type=float)
 
     args = parser.parse_args()
 

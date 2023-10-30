@@ -23,13 +23,12 @@ def bce_loss(logits, target, weights=None):
 
 
 def focal_loss(logits, target, weights=None, n=2):
-    if logits.ndim > 2:
-        # (N, C, d1, d2, ..., dK) --> (N * d1 * ... * dK, C)
-        c = logits.shape[1]
-        x = logits.permute(0, *range(2, logits.ndim), 1).reshape(-1, c)
-        # (N, d1, d2, ..., dK) --> (N * d1 * ... * dK,)
-        target = target.argmax(dim=1).long()
-        target = target.view(-1)
+    # (N, C, d1, d2, ..., dK) --> (N * d1 * ... * dK, C)
+    c = logits.shape[1]
+    x = logits.permute(0, *range(2, logits.ndim), 1).reshape(-1, c)
+    # (N, d1, d2, ..., dK) --> (N * d1 * ... * dK,)
+    target = target.argmax(dim=1).long()
+    target = target.view(-1)
 
     log_p = F.log_softmax(x, dim=-1)
     ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
@@ -38,7 +37,7 @@ def focal_loss(logits, target, weights=None, n=2):
     log_pt = log_p[all_rows, target]
 
     pt = log_pt.exp()
-    focal_term = (1 - pt) ** n
+    focal_term = (1 - pt + 1e-12) ** n
 
     # the full loss: -alpha * ((1 - pt)^gamma) * log(pt)
     loss = focal_term * ce

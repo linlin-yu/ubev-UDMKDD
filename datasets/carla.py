@@ -1,13 +1,15 @@
 import json
 import math
 import os
+from time import time
 
 import torchvision
 from tools.geometry import *
 
 
 class CarlaDataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, is_train):
+    def __init__(self, data_path, is_train, n_classes):
+        self.n_classes = n_classes
         self.is_train = is_train
         self.return_info = False
 
@@ -29,15 +31,15 @@ class CarlaDataset(torch.utils.data.Dataset):
             bev_resolution.numpy(), bev_start_position.numpy(), bev_dimension.numpy()
         )
 
+        with open(os.path.join(os.path.join(self.data_path, f"agents/0/"), 'sensors.json'), 'r') as f:
+            self.sensors = json.load(f)
+
     def get_input_data(self, index, agent_path):
         images = []
         intrinsics = []
         extrinsics = []
 
-        with open(os.path.join(agent_path, 'sensors.json'), 'r') as f:
-            sensors = json.load(f)
-
-        for sensor_name, sensor_info in sensors['sensors'].items():
+        for sensor_name, sensor_info in self.sensors['sensors'].items():
             if sensor_info["sensor_type"] == "sensor.camera.rgb" and sensor_name != "birds_view_camera":
                 image = Image.open(os.path.join(agent_path + sensor_name, f'{index}.png'))
 
@@ -75,25 +77,32 @@ class CarlaDataset(torch.utils.data.Dataset):
 
         empty = np.ones(self.bev_dimension[:2])
 
-        road = mask(label, (128, 64, 128))
-        lane = mask(label, (157, 234, 50))
-        vehicles = mask(label, (0, 0, 142))
-
-        if np.sum(vehicles) < 5:
+        if self.n_classes == 4:
             road = mask(label, (128, 64, 128))
-            lane = mask(label, (50, 234, 157))
-            vehicles = mask(label, (142, 0, 0))
+            lane = mask(label, (157, 234, 50))
+            vehicles = mask(label, (0, 0, 142))
 
-        ood = mask(label, (0, 0, 0))
-        bounding_boxes = find_bounding_boxes(ood)
-        ood = draw_bounding_boxes(bounding_boxes)
+            ood = mask(label, (0, 0, 0))
+            bounding_boxes = find_bounding_boxes(ood)
+            ood = draw_bounding_boxes(bounding_boxes)
 
-        empty[vehicles == 1] = 0
-        empty[road == 1] = 0
-        empty[lane == 1] = 0
-        label = np.stack((vehicles, road, lane, empty))
+            empty[vehicles == 1] = 0
+            empty[road == 1] = 0
+            empty[lane == 1] = 0
+            label = np.stack((vehicles, road, lane, empty))
 
-        return torch.tensor(label.copy()), torch.tensor(ood)
+            return torch.tensor(label.copy()), torch.tensor(ood)
+        elif self.n_classes == 2:
+            vehicles = mask(label, (0, 0, 142))
+
+            ood = mask(label, (0, 0, 0))
+            bounding_boxes = find_bounding_boxes(ood)
+            ood = draw_bounding_boxes(bounding_boxes)
+
+            empty[vehicles == 1] = 0
+            label = np.stack((vehicles, empty))
+
+            return torch.tensor(label.copy()), torch.tensor(ood)
 
     def __len__(self):
         return self.ticks * self.vehicles
@@ -116,16 +125,16 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, n_classes=4):
     torch.manual_seed(1)
     np.random.seed(1)
 
     if ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "train_aug_quad"), True)
-        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug_quad"), True, n_classes=n_classes)
+        val_data = CarlaDataset(os.path.join(dataroot, "ood"), False, n_classes=n_classes)
     else:
-        train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
-        val_data = CarlaDataset(os.path.join(dataroot, "val"), False)
+        train_data = CarlaDataset(os.path.join(dataroot, "train"), True, n_classes=n_classes)
+        val_data = CarlaDataset(os.path.join(dataroot, "val"), False, n_classes=n_classes)
 
     if version == 'mini':
         g = torch.Generator()

@@ -13,6 +13,7 @@ from nuscenes.utils.splits import create_splits_scenes
 from PIL import Image
 from pyquaternion import Quaternion
 from shapely.errors import ShapelyDeprecationWarning
+from time import time
 
 from tools.geometry import *
 
@@ -232,7 +233,7 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, n_classes=4):
     nusc, dataroot = get_nusc(version, dataroot)
 
     train_data = NuScenesDataset(nusc, True)

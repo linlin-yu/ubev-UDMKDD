@@ -13,13 +13,16 @@ backbones = {
 
 
 class Model(nn.Module):
-    def __init__(self, devices, backbone='fiery', n_classes=4, opt=None, loss_type='focal'):
+    def __init__(self, devices, backbone='fiery', n_classes=4, opt=None, loss_type='focal', weights=None):
         super(Model, self).__init__()
 
         self.device = devices[0]
         self.devices = devices
 
-        self.weights = torch.tensor([3., 1., 2., 1.]).to(devices[0])
+        self.weights = weights
+
+        if self.weights is not None:
+            self.weights = self.weights.to(self.device)
 
         self.backbone = None
 

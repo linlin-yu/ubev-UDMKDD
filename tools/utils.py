@@ -23,8 +23,6 @@ colors = torch.tensor([
     [0, 0, 0],
 ])
 
-n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
-
 models = {
     'baseline': Baseline,
     'evidential': Evidential,
@@ -109,7 +107,7 @@ def save_unc(u_score, u_true, out_path):
 
 
 def save_pred(preds, labels, out_path, ego=False):
-    if preds.shape[1] != 1:
+    if preds.shape[1] != 2:
         pred = map_rgb(preds[0], ego=ego)
         label = map_rgb(labels[0], ego=ego)
         cv2.imwrite(os.path.join(out_path, "pred.png"), pred)
