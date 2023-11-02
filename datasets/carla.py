@@ -31,15 +31,15 @@ class CarlaDataset(torch.utils.data.Dataset):
             bev_resolution.numpy(), bev_start_position.numpy(), bev_dimension.numpy()
         )
 
-        with open(os.path.join(os.path.join(self.data_path, f"agents/0/"), 'sensors.json'), 'r') as f:
-            self.sensors = json.load(f)
-
     def get_input_data(self, index, agent_path):
         images = []
         intrinsics = []
         extrinsics = []
 
-        for sensor_name, sensor_info in self.sensors['sensors'].items():
+        with open(os.path.join(agent_path, 'sensors.json'), 'r') as f:
+            sensors = json.load(f)
+
+        for sensor_name, sensor_info in sensors['sensors'].items():
             if sensor_info["sensor_type"] == "sensor.camera.rgb" and sensor_name != "birds_view_camera":
                 image = Image.open(os.path.join(agent_path + sensor_name, f'{index}.png'))
 

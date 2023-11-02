@@ -63,21 +63,6 @@ def get_loader_info(model, loader):
             torch.cat(epistemic, dim=0))
 
 
-def get_iou(preds, labels):
-    classes = preds.shape[1]
-    intersect = [0]*classes
-    union = [0]*classes
-
-    with torch.no_grad():
-        for i in range(classes):
-            pred = (preds[:, i, :, :] >= .5)
-            tgt = labels[:, i, :, :].bool()
-            intersect[i] = (pred & tgt).sum().float().item()
-            union[i] = (pred | tgt).sum().float().item()
-
-    return [(intersect[i] / union[i]) if union[i] > 0 else 0 for i in range(classes)]
-
-
 def map_rgb(onehot, ego=False):
     dense = onehot.permute(1, 2, 0).detach().cpu().numpy().argmax(-1)
 

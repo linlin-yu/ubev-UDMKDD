@@ -30,6 +30,9 @@ def train():
     else:
         raise NotImplementedError
 
+    if config['loss'] == 'focal':
+        config['learning_rate'] *= 4
+
     print(f"Class weights: {weights}")
 
     train_loader, val_loader = datasets[config['dataset']](

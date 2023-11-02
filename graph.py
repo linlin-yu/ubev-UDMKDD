@@ -17,6 +17,7 @@ sns.set_context(
     rc={"lines.linewidth": 2.5}
 )
 
+
 def replace_last_section(path, new_section):
     head, tail = os.path.split(path)
     new_path = os.path.join(head, new_section)
@@ -98,6 +99,7 @@ if __name__ == "__main__":
             config = yaml.safe_load(file)
             config['pretrained'] = set[name]['path']
             config['logdir'] = f"outputs/graph/{name}"
+            config['n_classes'] = 4
             print(config['pretrained'])
             if args.gpus is not None:
                 config['gpus'] = [int(i) for i in args.gpus]

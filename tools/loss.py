@@ -67,9 +67,7 @@ def u_focal_loss(alpha, y, weights=None, n=2):
     a0 = S
     aj = torch.gather(alpha, 1, torch.argmax(y, dim=1, keepdim=True))
 
-    B = y * torch.exp(
-        (torch.lgamma(a0 - aj + n) + torch.lgamma(a0)) - (torch.lgamma(a0 + n) + torch.lgamma(a0 - aj))
-    ) * (torch.digamma(a0 + n) - torch.digamma(aj))
+    B = y * torch.exp((torch.lgamma(a0 - aj + n) + torch.lgamma(a0)) - (torch.lgamma(a0 + n) + torch.lgamma(a0 - aj))) * (torch.digamma(a0 + n) - torch.digamma(aj))
 
     if weights is not None:
         B *= weights.view(1, -1, 1, 1)
