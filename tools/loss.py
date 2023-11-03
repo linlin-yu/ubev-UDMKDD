@@ -32,15 +32,28 @@ def focal_loss(logits, target, weights=None, n=2):
 
     log_p = F.log_softmax(x, dim=-1)
     ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
-
     all_rows = torch.arange(len(x))
     log_pt = log_p[all_rows, target]
-
+    print(log_p.mean().item())
     pt = log_pt.exp()
     focal_term = (1 - pt + 1e-12) ** n
 
     # the full loss: -alpha * ((1 - pt)^gamma) * log(pt)
     loss = focal_term * ce
+
+    return loss
+
+
+def focal_loss_o(logits, target, weights=None, n=2):
+    target = target.argmax(dim=1)
+    log_p = F.log_softmax(logits, dim=1)
+
+    ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
+
+    log_pt = log_p.gather(1, target[None])
+    print(log_p.mean().item())
+    pt = log_pt.exp()
+    loss = ce * (1 - pt + 1e-8) ** n
 
     return loss
 

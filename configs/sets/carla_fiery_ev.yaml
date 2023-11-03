@@ -1,9 +1,0 @@
-evidential_uce:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/carla/fiery_evidential/19.pt'
-  label: "Evidential UCE"
-
-evidential_ufocal:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/carla/fiery_evidential_focal/19.pt'
-  label: "Evidential UFocal"

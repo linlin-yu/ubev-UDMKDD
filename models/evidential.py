@@ -7,7 +7,7 @@ class Evidential(Model):
     def __init__(self, *args, **kwargs):
         super(Evidential, self).__init__(*args, **kwargs)
 
-        self.beta_lambda = 0.0005
+        self.beta_lambda = 0.000
         print(f"BETA LAMBDA: {self.beta_lambda}")
 
     @staticmethod

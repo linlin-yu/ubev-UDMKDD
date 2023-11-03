@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from sklearn.metrics import *
+import matplotlib.pyplot as plt
 
 np.random.seed(seed=0)
 
@@ -21,8 +22,7 @@ def get_iou(preds, labels):
 
 
 def patch_metrics(uncertainty_scores, uncertainty_labels):
-    # thresholds = np.linspace(0, 1, 10)
-    thresholds = np.array([0., .1, .2, .3, .4, .5, .6, .7, .8, .9, 1.])
+    thresholds = np.linspace(0, 1, 11)
 
     pavpus = []
     agcs = []
@@ -44,8 +44,6 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
         stats[1].append(au)
         stats[2].append(ic)
         stats[3].append(iu)
-
-    print(percs)
 
     return pavpus, agcs, ugis, thresholds, auc(thresholds, pavpus), auc(thresholds, agcs), auc(thresholds, ugis)
 
@@ -106,8 +104,25 @@ def ece(y_hat, y, n_bins=10):
     acc_binned, conf_binned, bin_cardinalities = bin_predictions(y_hat, y, n_bins)
     ece = torch.abs(acc_binned - conf_binned) * bin_cardinalities
     ece = ece.sum() * 1 / (batch_size*200*200)
+    ece = ece.cpu().detach()
 
-    return ece.cpu().detach()
+    plt.figure(figsize=(8, 8))
+    start = np.around(1/n_bins/2, 3)
+    step = np.around(1/n_bins, 3)
+    x = np.around(np.arange(start, 1.0, step), 3)
+
+    plt.bar(x, x, alpha=0.6, width=0.1, color='lightcoral', label='Expected')
+    plt.bar(x, conf_binned, alpha=0.6, width=0.1, color='dodgerblue', label=f'ECE: {ece}')
+
+    plt.plot([0,1], [0,1], ls='--', c='k')
+    plt.xlabel('Confidence', fontsize=14)
+    plt.ylabel('Accuracy', fontsize=14)
+    plt.tick_params(labelsize=13)
+    plt.xlim(0, 1.0)
+    plt.ylim(0, 1.0)
+    plt.savefig("s.jpg")
+
+    return ece
 
 
 def bin_predictions(y_hat, y, n_bins=10):

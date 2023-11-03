@@ -190,7 +190,6 @@ if __name__ == "__main__":
         print(f"AUROC: {auroc:.3f} AUPR: {aupr:.3f}")
     elif metric == "ece":
         ece = ece(uncertainty_scores, uncertainty_labels)
-
         print(f"ECE: {ece:.3f}")
     else:
         raise ValueError("Please pick a valid metric.")

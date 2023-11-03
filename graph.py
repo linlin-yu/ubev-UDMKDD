@@ -111,13 +111,13 @@ if __name__ == "__main__":
 
         label = set[name]['label'] if 'label' in set[name] else name
 
+        iou = get_iou(predictions, ground_truth)
+        print(f"mIOU: {iou}")
+
         if is_ood:
             uncertainty_scores = epistemic.squeeze(1)
             uncertainty_labels = oods
         else:
-            iou = get_iou(predictions, ground_truth)
-            print(f"mIOU: {iou}")
-
             uncertainty_scores = aleatoric.squeeze(1)
             uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
 

@@ -1,9 +1,0 @@
-0:
-  config: 'configs/eval_carla_lss_evidential.yaml'
-  path: 'outputs/grid_gamma/0/2.pt'
-  label: "0"
-
-5:
-  config: 'configs/eval_carla_lss_evidential.yaml'
-  path: 'outputs/grid_gamma/5/2.pt'
-  label: ".5"
