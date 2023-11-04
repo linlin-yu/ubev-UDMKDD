@@ -112,16 +112,7 @@ def train():
 
         model.eval()
 
-        predictions, ground_truth, oods, aleatoric, epistemic = get_loader_info(model, val_loader)
-
-        if is_ood:
-            uncertainty_scores = epistemic.squeeze(1)
-            uncertainty_labels = oods
-            _, _, _, _, auroc, aupr, _ = roc_pr(uncertainty_scores, uncertainty_labels)
-
-            print(f"OOD Detection: AUROC - {auroc}, AUPR - {aupr}")
-            writer.add_scalar(f'val/ood_auroc', auroc, epoch)
-            writer.add_scalar(f'val/ood_aupr', aupr, epoch)
+        predictions, ground_truth, oods, aleatoric, epistemic = run_loader(model, val_loader)
 
         iou = get_iou(predictions, ground_truth)
 

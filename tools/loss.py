@@ -2,9 +2,6 @@ import torch
 import torch.distributions as D
 import torch.nn.functional as F
 from tools.uncertainty import *
-import torch.nn as nn
-
-from fvcore import nn as nnp
 
 
 def ce_loss(logits, target, weights=None):
@@ -34,7 +31,7 @@ def focal_loss(logits, target, weights=None, n=2):
     ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
     all_rows = torch.arange(len(x))
     log_pt = log_p[all_rows, target]
-    print(log_p.mean().item())
+
     pt = log_pt.exp()
     focal_term = (1 - pt + 1e-12) ** n
 
@@ -55,10 +52,6 @@ def focal_loss_o(logits, target, weights=None, n=2):
     loss = ce * (1 - pt + 1e-8) ** n
 
     return loss
-
-
-def sigmoid_focal_loss(logits, target, weights=None, n=2):
-    return nnp.sigmoid_focal_loss(logits, target, gamma=n)
 
 
 def uce_loss(alpha, y, weights=None):

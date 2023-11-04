@@ -40,7 +40,7 @@ n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
 weights = torch.tensor([3., 1., 2., 1.])
 
 
-def get_loader_info(model, loader):
+def run_loader(model, loader):
     predictions = []
     ground_truth = []
     oods = []
@@ -56,8 +56,6 @@ def get_loader_info(model, loader):
             oods.append(ood)
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
-
-            save_unc(model.epistemic(outs), ood, './test')
 
     return (torch.cat(predictions, dim=0),
             torch.cat(ground_truth, dim=0),
@@ -105,7 +103,6 @@ def save_pred(preds, labels, out_path, ego=False):
     else:
         cv2.imwrite(os.path.join(out_path, "pred.png"), preds[0, 0].detach().cpu().numpy() * 255)
         cv2.imwrite(os.path.join(out_path, "label.png"), labels[0, 0].detach().cpu().numpy() * 255)
-
 
 
 def get_config(args):

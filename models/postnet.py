@@ -27,8 +27,13 @@ class Postnet(Model):
             self.backbone.module.to_logits = Post(self.backbone.module.decoder.out_channels).to(self.device)
 
     @staticmethod
-    def aleatoric(alpha):
-        return dissonance(alpha)
+    def aleatoric(alpha, mode='aleatoric'):
+        if mode == 'aleatoric':
+            soft = Postnet.activate(alpha)
+            max_soft, hard = soft.max(dim=1)
+            return (1 - max_soft[:, None, :, :]) / torch.max(1 - max_soft[:, None, :, :])
+        elif mode == 'dissonance':
+            return dissonance(alpha)
 
     @staticmethod
     def epistemic(alpha):

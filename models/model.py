@@ -32,6 +32,7 @@ class Model(nn.Module):
         self.gamma = 2
 
         self.create_backbone(backbone)
+        print(f"Using weights: {self.weights}")
 
     def create_backbone(self, backbone):
         self.backbone = nn.DataParallel(
@@ -82,4 +83,5 @@ class Model(nn.Module):
 
         return outs, preds, loss
 
-    def forward(self, images, intrinsics, extrinsics): pass
+    def forward(self, images, intrinsics, extrinsics):
+        pass

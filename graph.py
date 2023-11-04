@@ -99,7 +99,7 @@ if __name__ == "__main__":
             config = yaml.safe_load(file)
             config['pretrained'] = set[name]['path']
             config['logdir'] = f"outputs/graph/{name}"
-            config['n_classes'] = 4
+
             print(config['pretrained'])
             if args.gpus is not None:
                 config['gpus'] = [int(i) for i in args.gpus]

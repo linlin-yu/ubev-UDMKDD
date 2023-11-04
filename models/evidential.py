@@ -11,11 +11,13 @@ class Evidential(Model):
         print(f"BETA LAMBDA: {self.beta_lambda}")
 
     @staticmethod
-    def aleatoric(alpha):
-        soft = Evidential.activate(alpha)
-        max_soft, hard = soft.max(dim=1)
-        return (1 - max_soft[:, None, :, :]) / torch.max(1 - max_soft[:, None, :, :])
-        # return dissonance(alpha)
+    def aleatoric(alpha, mode='aleatoric'):
+        if mode == 'aleatoric':
+            soft = Evidential.activate(alpha)
+            max_soft, hard = soft.max(dim=1)
+            return (1 - max_soft[:, None, :, :]) / torch.max(1 - max_soft[:, None, :, :])
+        elif mode == 'dissonance':
+            return dissonance(alpha)
 
     @staticmethod
     def epistemic(alpha):

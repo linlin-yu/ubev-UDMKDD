@@ -68,7 +68,7 @@ def eval(config, is_ood, set, split, dataroot):
             epistemic.append(model.epistemic(outs))
 
             if is_ood:
-                save_unc(model.epistemic(outs)/model.epistemic(outs).max(), ood, config['logdir'])
+                save_unc(model.epistemic(outs), ood, config['logdir'])
             else:
                 save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1), config['logdir'])
 
@@ -112,11 +112,14 @@ if __name__ == "__main__":
 
     predictions, ground_truth, oods, aleatoric, epistemic = eval(config, is_ood, set, split, dataroot)
 
+    iou = get_iou(predictions, ground_truth)
     ece = ece(predictions, ground_truth)
+
     print(f"ECE: {ece:.3f}")
+    print(f"IOU: {iou}")
 
     if args.save:
-        torch.save(predictions, os.path.join(config['logdir'], 'preds.pt'))
+        torch.save(predictions, os.path.join(config['logdir'], 'predictions.pt'))
         torch.save(ground_truth, os.path.join(config['logdir'], 'ground_truth.pt'))
         torch.save(oods, os.path.join(config['logdir'], 'oods.pt'))
         torch.save(aleatoric, os.path.join(config['logdir'], 'aleatoric.pt'))
@@ -126,8 +129,6 @@ if __name__ == "__main__":
         uncertainty_scores = epistemic.squeeze(1)
         uncertainty_labels = oods
     else:
-        iou = get_iou(predictions, ground_truth)
-
         uncertainty_scores = aleatoric.squeeze(1)
         uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
 
@@ -188,3 +189,4 @@ if __name__ == "__main__":
         raise ValueError("Please pick a valid metric.")
 
     fig.savefig(save_path, bbox_inches='tight')
+    print(f"Graph saved to {save_path}")
