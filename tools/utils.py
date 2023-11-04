@@ -36,6 +36,9 @@ datasets = {
     'carla': compile_data_carla,
 }
 
+n_classes, classes = 4, ["vehicle", "road", "lane", "background"]
+weights = torch.tensor([3., 1., 2., 1.])
+
 
 def get_loader_info(model, loader):
     predictions = []

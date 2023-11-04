@@ -42,6 +42,7 @@ def entropy(pred, dim=1):
 
     e = -prob * (torch.log(prob) / np.log(class_num))
     u = torch.sum(e, dim=dim, keepdim=True)
+
     if torch.any(torch.isnan(u)):
         print("NAN")
 

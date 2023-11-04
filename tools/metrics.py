@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 from sklearn.metrics import *
+from sklearn.calibration import *
+import torchmetrics
+
 import matplotlib.pyplot as plt
 
 np.random.seed(seed=0)
@@ -35,6 +38,7 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
         perc = torch.quantile(uncertainty_scores, thresh).item()
         pavpu, agc, ugi, ac, au, ic, iu = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=perc)
         # pavpu, agc, ugi, ac, au, ic, iu = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=thresh)
+
         pavpus.append(pavpu)
         agcs.append(agc)
         ugis.append(ugi)
@@ -70,9 +74,9 @@ def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0
         ic += torch.sum(~accurate & ~uncertain)
 
         if anchor[1] < uncertainty_labels.shape[1] - window_size:
-            anchor = (anchor[0], anchor[1] + window_size)
+            anchor = (anchor[0], anchor[1] + 1)
         else:
-            anchor = (anchor[0] + window_size, 0)
+            anchor = (anchor[0] + 1, 0)
 
     a_given_c = ac / (ac + ic + 1e-10)
     u_given_i = iu / (ic + iu + 1e-10)
@@ -82,47 +86,51 @@ def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0
     return pavpu.item(), a_given_c.item(), u_given_i.item(), ac.item(), au.item(), ic.item(), iu.item()
 
 
-def roc_pr(uncertainty_scores, uncertainty_labels):
-    y_true = uncertainty_labels.flatten()
-    y_score = uncertainty_scores.flatten()
+def roc_pr(uncertainty_scores, uncertainty_labels, window_size=1):
+
+    if window_size == 1:
+        y_true = uncertainty_labels.flatten().numpy()
+        y_score = uncertainty_scores.flatten().numpy()
+    else:
+        y_true = []
+        y_score = []
+
+        anchor = (0, 0)
+        last_anchor = (uncertainty_labels.shape[1] - window_size, uncertainty_labels.shape[2] - window_size)
+
+        while anchor != last_anchor:
+            label_window = uncertainty_labels[:, anchor[0]:anchor[0] + window_size, anchor[1]:anchor[1] + window_size]
+            uncertainty_window = uncertainty_scores[:, anchor[0]:anchor[0] + window_size,
+                                 anchor[1]:anchor[1] + window_size]
+
+            accuracy = (torch.sum(label_window, dim=(1, 2)) / (window_size ** 2)) > .5
+            uncertainty = torch.mean(uncertainty_window, dim=(1, 2))
+
+            for i in range(accuracy.shape[0]):
+                y_true.append(accuracy[i].item())
+                y_score.append(uncertainty[i].item())
+
+            if anchor[1] < uncertainty_labels.shape[1] - window_size:
+                anchor = (anchor[0], anchor[1] + 1)
+            else:
+                anchor = (anchor[0] + 1, 0)
+
+        y_true = np.array(y_true)
+        y_score = np.array(y_score)
 
     pr, rec, _ = precision_recall_curve(y_true, y_score)
     fpr, tpr, _ = roc_curve(y_true, y_score)
     aupr = auc(rec, pr)
     auroc = auc(fpr, tpr)
 
-    no_skill = torch.sum(y_true) / len(y_true)
+    no_skill = np.sum(y_true) / len(y_true)
 
     return fpr, tpr, rec, pr, auroc, aupr, no_skill
 
 
-def ece(y_hat, y, n_bins=10):
-    batch_size = y_hat.shape[0]
-    y_hat = y_hat.view(batch_size, -1, 1)
-    y = y.view(batch_size, -1, 1)
-
-    acc_binned, conf_binned, bin_cardinalities = bin_predictions(y_hat, y, n_bins)
-    ece = torch.abs(acc_binned - conf_binned) * bin_cardinalities
-    ece = ece.sum() * 1 / (batch_size*200*200)
-    ece = ece.cpu().detach()
-
-    plt.figure(figsize=(8, 8))
-    start = np.around(1/n_bins/2, 3)
-    step = np.around(1/n_bins, 3)
-    x = np.around(np.arange(start, 1.0, step), 3)
-
-    plt.bar(x, x, alpha=0.6, width=0.1, color='lightcoral', label='Expected')
-    plt.bar(x, conf_binned, alpha=0.6, width=0.1, color='dodgerblue', label=f'ECE: {ece}')
-
-    plt.plot([0,1], [0,1], ls='--', c='k')
-    plt.xlabel('Confidence', fontsize=14)
-    plt.ylabel('Accuracy', fontsize=14)
-    plt.tick_params(labelsize=13)
-    plt.xlim(0, 1.0)
-    plt.ylim(0, 1.0)
-    plt.savefig("s.jpg")
-
-    return ece
+def ece(y_pred, y_true, n_bins=10):
+    y_true = y_true.long().argmax(dim=1)
+    return torchmetrics.functional.calibration_error(y_pred, y_true, 'multiclass', n_bins=n_bins, num_classes=y_pred.shape[1])
 
 
 def bin_predictions(y_hat, y, n_bins=10):

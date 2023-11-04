@@ -15,7 +15,9 @@ class Dropout(Model):
 
     @staticmethod
     def epistemic(logits):
-        return entropy(logits)
+        var = torch.var(Dropout.activate(logits), dim=0)
+
+        return 1 - 1 / var
 
     @staticmethod
     def activate(logits):

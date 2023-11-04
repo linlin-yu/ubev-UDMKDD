@@ -51,7 +51,6 @@ def focal_loss_o(logits, target, weights=None, n=2):
     ce = F.nll_loss(log_p, target, weight=weights, reduction='none')
 
     log_pt = log_p.gather(1, target[None])
-    print(log_p.mean().item())
     pt = log_pt.exp()
     loss = ce * (1 - pt + 1e-8) ** n
 
@@ -99,6 +98,9 @@ def entropy_reg(alpha, beta_reg=.0005):
 
 
 def ood_reg(alpha, ood):
+    if ood.sum() == 0:
+        return 0
+
     alpha = alpha.permute(0, 2, 3, 1)
 
     alpha_d = D.Dirichlet(alpha)

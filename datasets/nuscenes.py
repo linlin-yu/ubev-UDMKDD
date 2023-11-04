@@ -1,19 +1,13 @@
 import os
 import warnings
-
-import cv2
-import numpy as np
-import torch
 import torchvision
+
 from nuscenes.eval.common.utils import quaternion_yaw
 from nuscenes.map_expansion.map_api import NuScenesMap
 from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.data_classes import Box
 from nuscenes.utils.splits import create_splits_scenes
-from PIL import Image
-from pyquaternion import Quaternion
+from nuscenes.utils.data_classes import Box
 from shapely.errors import ShapelyDeprecationWarning
-from time import time
 
 from tools.geometry import *
 
@@ -21,7 +15,13 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
-    def __init__(self, nusc, is_train):
+    def __init__(self, nusc, is_train, ood=False):
+        self.ood = ood
+
+        self.ood_classes_val = ["vehicle.bicycle"]
+        self.ood_classes_train = ["vehicle.motorcycle"]
+        self.all_ood = self.ood_classes_train + self.ood_classes_val
+
         self.nusc = nusc
         self.is_train = is_train
 
@@ -71,10 +71,36 @@ class NuScenesDataset(torch.utils.data.Dataset):
     def prepro(self):
         samples = [samp for samp in self.nusc.sample]
         samples = [samp for samp in samples if self.nusc.get('scene', samp['scene_token'])['name'] in self.scenes]
-
         samples.sort(key=lambda x: (x['scene_token'], x['timestamp']))
 
-        return samples
+        ood = []
+        id = []
+
+        for rec in samples:
+            ego_pose = self.nusc.get('ego_pose', rec['data']['LIDAR_TOP'])
+
+            ego_coord = ego_pose['translation']
+
+            c = False
+
+            for tok in rec['anns']:
+                inst = self.nusc.get('sample_annotation', tok)
+
+                box_coord = inst['translation']
+
+                if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 100 or int(
+                        inst['visibility_token']) <= 2:
+                    continue
+
+                if inst['category_name'] in self.ood_classes_val:
+                    ood.append(rec)
+                    c = True
+                    break
+
+            if not c:
+                id.append(rec)
+
+        return ood if self.ood and self.mode == 'val' else id
 
     @staticmethod
     def get_resizing_and_cropping_parameters():
@@ -156,6 +182,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         rot = Quaternion(egopose['rotation']).inverse
 
         vehicles = np.zeros(self.bev_dimension[:2])
+        ood = np.zeros(self.bev_dimension[:2])
 
         for token in rec['anns']:
             inst = self.nusc.get('sample_annotation', token)
@@ -166,6 +193,11 @@ class NuScenesDataset(torch.utils.data.Dataset):
             if 'vehicle' in inst['category_name']:
                 pts, _ = self.get_region(inst, trans, rot)
                 cv2.fillPoly(vehicles, [pts], 1.0)
+
+            if inst['category_name'] in self.all_ood:
+                pts, _ = self.get_region(inst, trans, rot)
+                cv2.fillPoly(ood, [pts], 1.0)
+
 
         road, lane = self.get_map(rec)
 
@@ -181,7 +213,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         labels = np.stack((vehicles, road, lane, empty))
         labels = np.flip(labels, axis=(1, 2))
 
-        return torch.tensor(labels.copy())
+        return torch.tensor(labels.copy()), torch.tensor(ood.copy())
 
     def get_region(self, instance_annotation, ego_translation, ego_rotation):
         box = Box(instance_annotation['translation'], instance_annotation['size'],
@@ -221,9 +253,9 @@ class NuScenesDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         rec = self.ixes[index]
         images, intrinsics, extrinsics = self.get_input_data(rec)
-        labels = self.get_label(rec)
+        labels, oods = self.get_label(rec)
 
-        return images, intrinsics, extrinsics, labels, torch.zeros(1)
+        return images, intrinsics, extrinsics, labels, oods
 
 
 def get_nusc(version, dataroot):
@@ -233,11 +265,11 @@ def get_nusc(version, dataroot):
     return nusc, dataroot
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, n_classes=4):
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
     nusc, dataroot = get_nusc(version, dataroot)
 
-    train_data = NuScenesDataset(nusc, True)
-    val_data = NuScenesDataset(nusc, False)
+    train_data = NuScenesDataset(nusc, True, ood=ood)
+    val_data = NuScenesDataset(nusc, False, ood=ood)
 
     train_loader = torch.utils.data.DataLoader(
         train_data,

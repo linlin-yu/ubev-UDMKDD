@@ -44,8 +44,9 @@ class Ensemble(Model):
 
     @staticmethod
     def epistemic(logits):
-        unc = entropy(logits, dim=2)
-        return torch.mean(unc, dim=0)
+        var = torch.var(Ensemble.activate(logits), dim=0)
+
+        return 1 - 1 / var
 
     @staticmethod
     def activate(logits):

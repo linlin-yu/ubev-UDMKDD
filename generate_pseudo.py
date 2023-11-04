@@ -4,7 +4,6 @@ from tqdm import trange
 from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 from rembg import remove
 
-from PIL import Image
 import numpy as np
 import os
 import argparse

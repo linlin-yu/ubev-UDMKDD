@@ -19,8 +19,6 @@ np.random.seed(0)
 
 
 def eval(config, is_ood, set, split, dataroot):
-    n_classes = config['n_classes']
-
     train_loader, val_loader = datasets[config['dataset']](
         split, dataroot,
         batch_size=config['batch_size'],
@@ -57,18 +55,14 @@ def eval(config, is_ood, set, split, dataroot):
 
     os.makedirs(config['logdir'], exist_ok=True)
 
-    predictions = []
-    ground_truth = []
-    oods = []
-    aleatoric = []
-    epistemic = []
+    predictions, ground_truths, oods, aleatoric, epistemic = [], [], [], [], []
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
             outs = model(images, intrinsics, extrinsics).detach().cpu()
 
             predictions.append(model.activate(outs))
-            ground_truth.append(labels)
+            ground_truths.append(labels)
             oods.append(ood)
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
@@ -81,7 +75,7 @@ def eval(config, is_ood, set, split, dataroot):
             save_pred(model.activate(outs), labels, config['logdir'])
 
     return (torch.cat(predictions, dim=0),
-            torch.cat(ground_truth, dim=0),
+            torch.cat(ground_truths, dim=0),
             torch.cat(oods, dim=0),
             torch.cat(aleatoric, dim=0),
             torch.cat(epistemic, dim=0))
@@ -99,7 +93,6 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-m', '--metric', default="rocpr", required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
-    parser.add_argument('--n_classes', default=4, required=False, type=int)
     parser.add_argument('--set', default="val", required=False, type=str)
 
     args = parser.parse_args()
@@ -118,6 +111,9 @@ if __name__ == "__main__":
     name = f"{config['backbone']}_{config['type']}"
 
     predictions, ground_truth, oods, aleatoric, epistemic = eval(config, is_ood, set, split, dataroot)
+
+    ece = ece(predictions, ground_truth)
+    print(f"ECE: {ece:.3f}")
 
     if args.save:
         torch.save(predictions, os.path.join(config['logdir'], 'preds.pt'))
@@ -163,7 +159,7 @@ if __name__ == "__main__":
         print(f"AVG-PAvPU: {pm[0]:.3f}, AVG-p(accurate|certain): {pm[1]:.3f}, AVG-P(uncertain|inaccurate): {pm[2]:.3f}")
         print(f"AU-PAvPU: {au_pavpu:.3f}, AU-p(accurate|certain): {au_agc:.3f}, AU-P(uncertain|inaccurate): {au_ugi:.3f}")
     elif metric == "rocpr":
-        fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
+        fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels, window_size=4)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -188,9 +184,6 @@ if __name__ == "__main__":
         save_path = os.path.join(config['logdir'], f"rocpr_{'o' if is_ood else 'm'}_{name}.png")
 
         print(f"AUROC: {auroc:.3f} AUPR: {aupr:.3f}")
-    elif metric == "ece":
-        ece = ece(uncertainty_scores, uncertainty_labels)
-        print(f"ECE: {ece:.3f}")
     else:
         raise ValueError("Please pick a valid metric.")
 
