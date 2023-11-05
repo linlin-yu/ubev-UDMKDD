@@ -92,7 +92,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
                         inst['visibility_token']) <= 2:
                     continue
 
-                if inst['category_name'] in self.ood_classes_val:
+                if inst['category_name'] in self.ood_classes_val and not inst['category_name'] in self.ood_classes_train:
                     ood.append(rec)
                     c = True
                     break
@@ -197,7 +197,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
             if inst['category_name'] in self.all_ood:
                 pts, _ = self.get_region(inst, trans, rot)
                 cv2.fillPoly(ood, [pts], 1.0)
-
 
         road, lane = self.get_map(rec)
 

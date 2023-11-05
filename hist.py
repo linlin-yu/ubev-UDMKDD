@@ -31,8 +31,8 @@ if __name__ == "__main__":
     dataroot = f"../data/carla"
 
     for s in sets:
-        os.makedirs(f"outputs/grid_gamma/hist_test_al/{s}")
-        writer = SummaryWriter(logdir=f"outputs/grid_gamma/hist_test_al/{s}")
+        os.makedirs(f"outputs/grid_gamma/hist_avt/{s}")
+        writer = SummaryWriter(logdir=f"outputs/grid_gamma/hist_avt/{s}")
 
         dl = sorted_alphanumeric(os.listdir(f"./outputs/grid_gamma/{s}"))
         for ch in dl:
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                 path = os.path.join(f"./outputs/grid_gamma/{s}", ch)
                 config['pretrained'] = path
 
-                predictions, ground_truth, oods, aleatoric, epistemic = eval(config, True, 'val', split, dataroot)
+                predictions, ground_truth, oods, aleatoric, epistemic = eval(config, False, 'val', split, dataroot)
                 uncertainty_scores = aleatoric.squeeze(1)
                 uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
                 iou = get_iou(predictions, ground_truth)
@@ -55,4 +55,5 @@ if __name__ == "__main__":
                 writer.add_scalar("hist/vehicle_iou", iou[0], int(ch.split(".")[0]))
                 writer.add_scalar("hist/road_iou", iou[1], int(ch.split(".")[0]))
                 writer.add_scalar("hist/lane_iou", iou[2], int(ch.split(".")[0]))
+                writer.add_scalar("hist/avt", ((iou[0]+iou[1]+iou[2]+iou[3])/4 + aupr)/2, int(ch.split(".")[0]))
 

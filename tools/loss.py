@@ -2,6 +2,7 @@ import torch
 import torch.distributions as D
 import torch.nn.functional as F
 from tools.uncertainty import *
+import torch.nn as nn
 
 
 def ce_loss(logits, target, weights=None):

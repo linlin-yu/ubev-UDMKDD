@@ -1,5 +1,6 @@
 import seaborn as sns
 import torch.nn.functional
+torch.set_printoptions(precision=10)
 
 from train import *
 
@@ -114,6 +115,8 @@ if __name__ == "__main__":
 
     iou = get_iou(predictions, ground_truth)
     ece = ece(predictions, ground_truth)
+
+    aleatoric = aleatoric * 0 + 1.
 
     print(f"ECE: {ece:.3f}")
     print(f"IOU: {iou}")
