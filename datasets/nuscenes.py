@@ -18,7 +18,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
     def __init__(self, nusc, is_train, ood=False):
         self.ood = ood
 
-        self.ood_classes_val = ["vehicle.bicycle"]
+        self.ood_classes_val = ["vehicle.bicycle", "static_object.bicycle_rack"]
         self.ood_classes_train = ["vehicle.motorcycle"]
         self.all_ood = self.ood_classes_train + self.ood_classes_val
 
@@ -74,6 +74,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         samples.sort(key=lambda x: (x['scene_token'], x['timestamp']))
 
         ood = []
+        aug = []
         id = []
 
         for rec in samples:
@@ -82,25 +83,35 @@ class NuScenesDataset(torch.utils.data.Dataset):
             ego_coord = ego_pose['translation']
 
             c = False
+            a = False
 
             for tok in rec['anns']:
                 inst = self.nusc.get('sample_annotation', tok)
 
                 box_coord = inst['translation']
 
-                if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 100 or int(
+                if max(abs(ego_coord[0] - box_coord[0]), abs(ego_coord[1] - box_coord[1])) > 50 or int(
                         inst['visibility_token']) <= 2:
                     continue
 
-                if inst['category_name'] in self.ood_classes_val and not inst['category_name'] in self.ood_classes_train:
+                if inst['category_name'] in self.ood_classes_val:
                     ood.append(rec)
                     c = True
                     break
 
+                if inst['category_name'] in self.ood_classes_train:
+                    a = True
+
             if not c:
                 id.append(rec)
 
-        return ood if self.ood and self.mode == 'val' else id
+                if a:
+                    aug.append(rec)
+
+        if self.ood and self.mode == 'val':
+            return ood
+        else:
+            return id
 
     @staticmethod
     def get_resizing_and_cropping_parameters():
@@ -144,6 +155,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
             extrinsic = np.linalg.inv(extrinsic)
 
             image = Image.open(os.path.join(self.dataroot, camera_sample['filename']))
+
             image = resize_and_crop_image(image, resize_dims=self.augmentation_parameters['resize_dims'],
                                           crop=self.augmentation_parameters['crop'])
             normalized_image = self.to_tensor(image)
@@ -190,13 +202,12 @@ class NuScenesDataset(torch.utils.data.Dataset):
             if int(inst['visibility_token']) == 1:
                 continue
 
-            if 'vehicle' in inst['category_name']:
-                pts, _ = self.get_region(inst, trans, rot)
-                cv2.fillPoly(vehicles, [pts], 1.0)
-
             if inst['category_name'] in self.all_ood:
                 pts, _ = self.get_region(inst, trans, rot)
                 cv2.fillPoly(ood, [pts], 1.0)
+            elif 'vehicle' in inst['category_name']:
+                pts, _ = self.get_region(inst, trans, rot)
+                cv2.fillPoly(vehicles, [pts], 1.0)
 
         road, lane = self.get_map(rec)
 

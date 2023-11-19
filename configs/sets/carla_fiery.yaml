@@ -3,6 +3,11 @@ baseline_ce:
   path: 'outputs/carla/fiery_baseline/19.pt'
   label: "Baseline CE"
 
+baseline_focal:
+  config: 'configs/eval_carla_fiery_baseline.yaml'
+  path: 'outputs/carla/fiery_baseline_focal/19.pt'
+  label: "Baseline Focal"
+
 evidential_uce:
   config: 'configs/eval_carla_fiery_evidential.yaml'
   path: 'outputs/carla/fiery_evidential/19.pt'
@@ -38,7 +43,7 @@ dropout_ce:
   path: 'outputs/carla/fiery_baseline/19.pt'
   label: "Dropout CE"
 
-ensemble_ce:
-  config: 'configs/eval_carla_fiery_ensemble.yaml'
-  path: 'outputs/carla/fiery_ensemble/19.pt'
-  label: "Ensemble CE"
+dropout_focal:
+  config: 'configs/eval_carla_fiery_dropout.yaml'
+  path: 'outputs/carla/fiery_baseline_focal/19.pt'
+  label: "Dropout Focal"

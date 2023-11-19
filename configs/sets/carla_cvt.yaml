@@ -3,6 +3,11 @@ baseline_ce:
   path: 'outputs/carla/cvt_baseline/19.pt'
   label: "Baseline CE"
 
+baseline_focal:
+  config: 'configs/eval_carla_cvt_baseline.yaml'
+  path: 'outputs/carla/cvt_baseline_focal/19.pt'
+  label: "Baseline Focal"
+
 evidential_uce:
   config: 'configs/eval_carla_cvt_evidential.yaml'
   path: 'outputs/carla/cvt_evidential/19.pt'
@@ -38,7 +43,7 @@ dropout_ce:
   path: 'outputs/carla/cvt_baseline/19.pt'
   label: "Dropout CE"
 
-ensemble_ce:
-  config: 'configs/eval_carla_cvt_ensemble.yaml'
-  path: 'outputs/carla/cvt_ensemble/19.pt'
-  label: "Ensemble CE"
+dropout_focal:
+  config: 'configs/eval_carla_cvt_dropout.yaml'
+  path: 'outputs/carla/cvt_baseline_focal/19.pt'
+  label: "Dropout Focal"

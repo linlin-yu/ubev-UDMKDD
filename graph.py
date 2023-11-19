@@ -67,6 +67,16 @@ if __name__ == "__main__":
 
         ax3.set_xlabel('Uncertainty Percentiles')
         ax3.set_ylabel('PAVPU')
+    elif metric == 'prob':
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12*scale, 6*scale))
+        plt.subplots_adjust(left=0.05, right=0.95)
+
+        ax1.set_xlabel('Uncertainty Threshold')
+        ax1.set_ylabel('p(accurate|certain)')
+
+        ax2.set_xlabel('Uncertainty Threshold')
+        ax2.set_ylabel('p(accurate|certain)')
+
     elif metric == 'rocpr':
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12*scale, 6*scale))
 
@@ -89,6 +99,8 @@ if __name__ == "__main__":
     else:
         raise ValueError("Please pick a valid metric.")
 
+    iou_path = f"{logdir}/iou_{'o' if is_ood else 'm'}_{set_name}.txt"
+
     no_skill_total = 0
 
     for name in names:
@@ -107,12 +119,15 @@ if __name__ == "__main__":
         split = "mini"
         dataroot = f"../data/{config['dataset']}"
 
-        predictions, ground_truth, oods, aleatoric, epistemic = eval(config, is_ood, lset, split, dataroot)
+        predictions, ground_truth, oods, aleatoric, epistemic, raws = eval(config, is_ood, lset, split, dataroot)
 
         label = set[name]['label'] if 'label' in set[name] else name
 
         iou = get_iou(predictions, ground_truth)
         print(f"mIOU: {iou}")
+
+        with open(iou_path, 'a') as file:
+            file.write(f"{label}: {[round(i, 3) for i in iou]}\n")
 
         if is_ood:
             uncertainty_scores = epistemic.squeeze(1)
@@ -125,17 +140,19 @@ if __name__ == "__main__":
             pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(uncertainty_scores,
                                                                                   uncertainty_labels)
 
-            perc = torch.quantile(uncertainty_scores,1. - uncertainty_labels.float().mean()).item()
-            pm = calculate_pavpu(uncertainty_scores, uncertainty_labels,
-                                 uncertainty_threshold=uncertainty_scores.mean())
-            print(
-                f"P-{perc:.3f}-PAvPU: {pm[0]:.3f}, P-{perc:.3f}-p(accurate|certain): {pm[1]:.3f}, P-{perc:.3f}-P(uncertain|inaccurate): {pm[2]:.3f}")
-
             ax1.plot(thresholds, agc, '.-', label=f"{label}: {au_agc:.3f}")
             ax2.plot(thresholds, ugi, '.-', label=f"{label}: {au_ugi:.3f}")
             ax3.plot(thresholds, pavpu, '.-', label=f"{label}: {au_pavpu:.3f}")
 
             print(f"AU-PAvPU - {au_pavpu:.3f}, AU-p(accurate|certain) - {au_agc:.3f}, AU-P(uncertain|inaccurate) - {au_ugi:.3f}")
+        elif metric == "prob":
+            pavpu, agc, ugi, thresholds, au_pavpu, au_agc, au_ugi = patch_metrics(uncertainty_scores,
+                                                                                  uncertainty_labels)
+
+            ax1.plot(thresholds, agc, '.-', label=f"{label}: {au_agc:.3f}")
+            ax2.plot(thresholds, ugi, '.-', label=f"{label}: {au_ugi:.3f}")
+
+            print(f"AU-p(accurate|certain) - {au_agc:.3f}, AU-P(uncertain|inaccurate) - {au_ugi:.3f}")
         elif metric == "rocpr":
             fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
@@ -181,7 +198,14 @@ if __name__ == "__main__":
         ax1.legend(frameon=True)
         ax2.legend(frameon=True)
         ax3.legend(frameon=True)
+    elif metric == 'prob':
+        ax1.set_xlim([-0.05, 1.05])
+        ax1.set_ylim([-0.05, 1.05])
+        ax2.set_xlim([-0.05, 1.05])
+        ax2.set_ylim([-0.05, 1.05])
 
+        ax1.legend(frameon=True)
+        ax2.legend(frameon=True)
     elif metric == 'rocpr':
         ax1.set_xlim([-0.05, 1.05])
         ax1.set_ylim([-0.05, 1.05])

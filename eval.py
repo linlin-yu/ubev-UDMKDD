@@ -1,5 +1,6 @@
 import seaborn as sns
 import torch.nn.functional
+
 torch.set_printoptions(precision=10)
 
 from train import *
@@ -24,7 +25,8 @@ def eval(config, is_ood, set, split, dataroot):
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=is_ood
+        ood=is_ood,
+        pseudo=is_ood and set == 'train'
     )
 
     model = models[config['type']](
@@ -43,35 +45,38 @@ def eval(config, is_ood, set, split, dataroot):
         raise NotImplementedError()
 
     model.load(torch.load(config['pretrained']))
-    model.eval()
-    model.training = False
 
-    print("--------------------------------------------------") 
+    print("--------------------------------------------------")
     print(f"Running eval on {split}")
     print(f"Using GPUS: {config['gpus']}")
     print(f"Loader: {len(loader.dataset)}")
+    print(f"Batch size: {config['batch_size']}")
     print(f"Output directory: {config['logdir']} ")
     print(f"Pretrained: {config['pretrained']} ")
     print("--------------------------------------------------")
 
     os.makedirs(config['logdir'], exist_ok=True)
 
-    predictions, ground_truths, oods, aleatoric, epistemic = [], [], [], [], []
+    predictions, ground_truths, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
-            outs = model(images, intrinsics, extrinsics).detach().cpu()
+            model.eval()
+            model.training = False
 
+            outs = model(images, intrinsics, extrinsics).detach().cpu()
             predictions.append(model.activate(outs))
             ground_truths.append(labels)
             oods.append(ood)
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
+            raw.append(outs)
 
             if is_ood:
                 save_unc(model.epistemic(outs), ood, config['logdir'])
             else:
-                save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1), config['logdir'])
+                save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1),
+                         config['logdir'])
 
             save_pred(model.activate(outs), labels, config['logdir'])
 
@@ -79,7 +84,8 @@ def eval(config, is_ood, set, split, dataroot):
             torch.cat(ground_truths, dim=0),
             torch.cat(oods, dim=0),
             torch.cat(aleatoric, dim=0),
-            torch.cat(epistemic, dim=0))
+            torch.cat(epistemic, dim=0),
+            torch.cat(raw, dim=0))
 
 
 if __name__ == "__main__":
@@ -111,22 +117,25 @@ if __name__ == "__main__":
     dataroot = f"../data/{config['dataset']}"
     name = f"{config['backbone']}_{config['type']}"
 
-    predictions, ground_truth, oods, aleatoric, epistemic = eval(config, is_ood, set, split, dataroot)
+    predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, is_ood, set, split, dataroot)
 
     iou = get_iou(predictions, ground_truth)
     ece = ece(predictions, ground_truth)
-
-    aleatoric = aleatoric * 0 + 1.
+    brier = brier_score(predictions, ground_truth)
 
     print(f"ECE: {ece:.3f}")
     print(f"IOU: {iou}")
+    print(f"Brier: {brier:.3f}")
+
+    aleatoric *= 1.1
 
     if args.save:
-        torch.save(predictions, os.path.join(config['logdir'], 'predictions.pt'))
+        torch.save(predictions, os.path.join(config['logdir'], 'prediction.pt'))
         torch.save(ground_truth, os.path.join(config['logdir'], 'ground_truth.pt'))
         torch.save(oods, os.path.join(config['logdir'], 'oods.pt'))
         torch.save(aleatoric, os.path.join(config['logdir'], 'aleatoric.pt'))
         torch.save(epistemic, os.path.join(config['logdir'], 'epistemic.pt'))
+        torch.save(raw, os.path.join(config['logdir'], 'raw.pt'))
 
     if is_ood:
         uncertainty_scores = epistemic.squeeze(1)
@@ -141,29 +150,31 @@ if __name__ == "__main__":
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
 
         ax1.plot(thresholds, agc, 'g.-', label=f"AU-p(accurate|certain): {au_agc:.3f}")
-        ax1.set_xlabel('Uncertainty Percentiles')
+        ax1.set_xlabel('Uncertainty Threshold')
         ax1.set_ylabel('p(accurate|certain)')
         ax1.legend(frameon=True)
+        ax1.set_ylim(-0.05, 1.05)
 
         ax2.plot(thresholds, ugi, 'r.-', label=f"AU-p(uncertain|inaccurate): {au_ugi:.3f}")
-        ax2.set_xlabel('Uncertainty Percentiles')
+        ax2.set_xlabel('Uncertainty Threshold')
         ax2.set_ylabel('p(uncertain|inaccurate)')
         ax2.legend(frameon=True)
+        ax2.set_ylim(-0.05, 1.05)
 
-        ax3.plot(thresholds, pavpu,'b.-', label=f"AU-PAvPU: {au_pavpu:.3f}")
-        ax3.set_xlabel('Uncertainty Percentiles')
+        ax3.plot(thresholds, pavpu, 'b.-', label=f"AU-PAvPU: {au_pavpu:.3f}")
+        ax3.set_xlabel('Uncertainty Threshold')
         ax3.set_ylabel('PAVPU')
         ax3.legend(frameon=True)
+        ax3.set_ylim(-0.05, 1.05)
 
         fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'} - {name}")
 
         save_path = os.path.join(config['logdir'], f"patch_{'o' if is_ood else 'm'}_{name}.png")
 
-        pm = calculate_pavpu(uncertainty_scores, uncertainty_labels, uncertainty_threshold=uncertainty_scores.mean())
-        print(f"AVG-PAvPU: {pm[0]:.3f}, AVG-p(accurate|certain): {pm[1]:.3f}, AVG-P(uncertain|inaccurate): {pm[2]:.3f}")
-        print(f"AU-PAvPU: {au_pavpu:.3f}, AU-p(accurate|certain): {au_agc:.3f}, AU-P(uncertain|inaccurate): {au_ugi:.3f}")
+        print(
+            f"AU-PAvPU: {au_pavpu:.3f}, AU-p(accurate|certain): {au_agc:.3f}, AU-P(uncertain|inaccurate): {au_ugi:.3f}")
     elif metric == "rocpr":
-        fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels, window_size=4)
+        fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 

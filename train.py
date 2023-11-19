@@ -58,6 +58,12 @@ def train():
         model.gamma = config['gamma']
         print(f"GAMMA: {model.gamma}")
 
+    if 'ol' in config:
+        model.ood_lambda = config['ol']
+
+    if is_ood:
+        print(f"OOD LAMBDA: {model.ood_lambda}")
+
     print("--------------------------------------------------")
     print(f"Using GPUS: {config['gpus']}")
     print(f"Train loader: {len(train_loader.dataset)}")
@@ -137,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--num_epochs', required=False, type=int)
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
+    parser.add_argument('--ol', required=False, type=float)
 
     args = parser.parse_args()
 

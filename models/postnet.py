@@ -12,6 +12,11 @@ class Postnet(Model):
     def __init__(self, *args, **kwargs):
         super(Postnet, self).__init__(*args, **kwargs)
 
+        self.beta_lambda = 0.000
+        self.ood_lambda = 0.1
+
+        print(f"BETA LAMBDA: {self.beta_lambda}")
+
     def create_backbone(self, backbone):
         self.backbone = nn.DataParallel(
             backbones[backbone](n_classes=self.n_classes).to(self.device),
@@ -43,33 +48,29 @@ class Postnet(Model):
     def activate(alpha):
         return alpha / torch.sum(alpha, dim=1, keepdim=True)
 
-    def loss(self, alpha, y, beta_lambda=.0005):
+    def loss(self, alpha, y):
         if self.loss_type == 'ce':
             A = uce_loss(alpha, y, weights=self.weights)
         elif self.loss_type == 'focal':
-            A = u_focal_loss(alpha, y, weights=self.weights, n=2)
+            A = u_focal_loss(alpha, y, weights=self.weights, n=self.gamma)
         else:
             raise NotImplementedError()
 
-        if beta_lambda > 0:
-            A += entropy_reg(alpha, beta_lambda)
+        if self.beta_lambda > 0:
+            A += entropy_reg(alpha, self.beta_lambda)
 
         return A.mean()
 
-    def loss_ood(
-        self, alpha, y, ood,
-        beta_lambda=.0005,
-        ood_lambda=.0005
-    ):
-        A = uce_loss(alpha, y, self.weights)
+    def loss_ood(self, alpha, y, ood):
+        A = uce_loss(alpha, y, weights=self.weights)
 
-        if beta_lambda > 0:
-            A += entropy_reg(alpha, beta_reg=beta_lambda)
+        if self.beta_lambda > 0:
+            A += entropy_reg(alpha, beta_reg=self.beta_lambda)
 
         A = A[(1 - ood).unsqueeze(1).bool()].mean()
-        
-        if ood_lambda > 0:
-            A += ood_reg(alpha, ood) * ood_lambda
+
+        if self.ood_lambda > 0:
+            A += ood_reg(alpha, ood) * self.ood_lambda
 
         return A
 

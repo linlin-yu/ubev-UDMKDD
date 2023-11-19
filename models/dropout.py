@@ -1,5 +1,3 @@
-from focal_loss.focal_loss import FocalLoss
-
 from models.model import Model
 from tools.loss import *
 from tools.uncertainty import *
@@ -11,17 +9,17 @@ class Dropout(Model):
 
     @staticmethod
     def aleatoric(logits):
-        return entropy(logits)
+        return entropy(torch.mean(logits, dim=0))
 
     @staticmethod
     def epistemic(logits):
-        var = torch.var(Dropout.activate(logits), dim=0)
-
-        return 1 - 1 / var
+        pred, _ = logits.max(dim=2)
+        var = torch.var(pred, dim=0)
+        return (1 - 1 / var)[:, None]
 
     @staticmethod
     def activate(logits):
-        return torch.softmax(logits, dim=1)
+        return torch.softmax(torch.mean(logits, dim=0), dim=1)
 
     def loss(self, logits, target):
         if self.loss_type == 'ce':
@@ -40,5 +38,5 @@ class Dropout(Model):
             self.train()
             out = [self.backbone(images, intrinsics, extrinsics) for _ in range(20)]
 
-            return torch.mean(torch.stack(out), dim=0)
+            return torch.stack(out)
 

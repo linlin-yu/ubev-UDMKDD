@@ -1,7 +1,7 @@
-type: 'baseline'
+type: 'postnet'
 backbone: 'cvt'
 dataset: 'nuscenes'
-logdir: 'outputs/nuscenes/cvt_baseline'
+logdir: 'outputs/nuscenes/cvt_postnet'
 gpus: [7]
 batch_size: 32
 num_workers: 32

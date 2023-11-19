@@ -20,29 +20,33 @@ def sorted_alphanumeric(data):
 
 
 if __name__ == "__main__":
-    sets = ['.1', '.2', '.5', '1', '2', '5']
+    sets = ['0', '.1', '.5', '1', '2', '5']
 
-    with open('./configs/eval_carla_lss_evidential.yaml', 'r') as file:
+    with open('./configs/eval_carla_fiery_evidential.yaml', 'r') as file:
         config = yaml.safe_load(file)
-
-    config['n_classes'] = 4
 
     split = "mini"
     dataroot = f"../data/carla"
+    path = "outputs/grid_gamma_ood"
 
     for s in sets:
-        os.makedirs(f"outputs/grid_gamma/hist_avt/{s}")
-        writer = SummaryWriter(logdir=f"outputs/grid_gamma/hist_avt/{s}")
+        os.makedirs(f"./{path}/hists_ood/{s}")
+        writer = SummaryWriter(logdir=f"./{path}/hists_ood/{s}")
 
-        dl = sorted_alphanumeric(os.listdir(f"./outputs/grid_gamma/{s}"))
+        dl = sorted_alphanumeric(os.listdir(f"./{path}/{s}"))
         for ch in dl:
             if ch.endswith(".pt"):
-                path = os.path.join(f"./outputs/grid_gamma/{s}", ch)
-                config['pretrained'] = path
+                pre = os.path.join(f"./{path}/{s}", ch)
+                config['pretrained'] = pre
+                config['gpus'] = [4, 5, 6, 7]
 
-                predictions, ground_truth, oods, aleatoric, epistemic = eval(config, False, 'val', split, dataroot)
-                uncertainty_scores = aleatoric.squeeze(1)
-                uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()
+                torch.manual_seed(0)
+                np.random.seed(0)
+
+                predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, True  , 'train', split, dataroot)
+                uncertainty_scores = epistemic.squeeze(1)
+                uncertainty_labels = oods
+
                 iou = get_iou(predictions, ground_truth)
 
                 fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)

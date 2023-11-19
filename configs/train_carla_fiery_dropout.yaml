@@ -1,7 +1,7 @@
-type: 'baseline'
+type: 'dropout'
 backbone: 'fiery'
-dataset: 'nuscenes'
-logdir: 'outputs/nuscenes/fiery_baseline'
+dataset: 'carla'
+logdir: 'outputs/carla/fiery_dropout'
 gpus: [7]
 batch_size: 32
 num_workers: 32

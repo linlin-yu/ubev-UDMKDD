@@ -110,12 +110,13 @@ class CarlaDataset(torch.utils.data.Dataset):
         return images, intrinsics, extrinsics, labels, ood
 
 
-def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
-    torch.manual_seed(1)
-    np.random.seed(1)
-
-    if ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "train_aug_quad"), True)
+def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False):
+    if pseudo:
+        print("USING PSEUDO")
+        train_data = CarlaDataset(os.path.join(dataroot, "val_aug"), True)
+        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False)
+    elif ood:
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
     else:
         train_data = CarlaDataset(os.path.join(dataroot, "train"), True)
@@ -125,8 +126,8 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
         g = torch.Generator()
         g.manual_seed(0)
 
-        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=128, generator=g)
-        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=128, generator=g)
+        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=512, generator=g)
+        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=512, generator=g)
 
         train_loader = torch.utils.data.DataLoader(
             train_data,
@@ -141,7 +142,7 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False):
             batch_size=batch_size,
             num_workers=num_workers,
             drop_last=True,
-            sampler=val_sampler
+            sampler=val_sampler,
         )
     else:
         train_loader = torch.utils.data.DataLoader(

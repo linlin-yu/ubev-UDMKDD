@@ -66,7 +66,7 @@ def augment():
     carla_data.return_info = True
 
     for images, intrinsics, extrinsics, labels, oods, info in tqdm(carla_data):
-        save = info['index']+24000
+        save = info['index']
         path = os.path.join(args.save_dir, f"agents/{info['agent_number']}/")
 
         for camera in cameras:
@@ -137,6 +137,6 @@ if __name__ == "__main__":
     parser.add_argument("save_dir")
 
     args = parser.parse_args()
-    pseudo_path = './pseudo'
+    pseudo_path = './outputs/pseudo'
 
     augment()

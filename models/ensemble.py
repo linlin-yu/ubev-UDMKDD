@@ -39,19 +39,13 @@ class Ensemble(Model):
 
     @staticmethod
     def aleatoric(logits):
-        unc = entropy(logits, dim=2)
-        return torch.mean(unc, dim=0)
+        return entropy(torch.mean(logits, dim=0))
 
     @staticmethod
     def epistemic(logits):
-        var = torch.var(Ensemble.activate(logits), dim=0)
-
-        return 1 - 1 / var
-
-    @staticmethod
-    def activate(logits):
-        probs = torch.softmax(logits, dim=2)
-        return torch.mean(probs, dim=0)
+        pred, _ = logits.max(dim=2)
+        var = torch.var(pred, dim=0)
+        return (1 - 1 / var)[:, None]
 
     def loss(self, logits, target):
         losses = torch.zeros(logits.shape[0])
@@ -67,5 +61,6 @@ class Ensemble(Model):
         return losses.mean()
 
     def forward(self, images, intrinsics, extrinsics):
-        return self.backbone(images[None], intrinsics[None], extrinsics[None])
+        x = self.backbone(images[None], intrinsics[None], extrinsics[None])[0]
+        return x
 
