@@ -23,7 +23,7 @@ class Ensemble(Model):
         super(Ensemble, self).__init__(*args, **kwargs)
         self.n_models = 3
 
-    def create_backbone(self, backbone, n_models=3):
+    def create_backbone(self, backbone, n_models=5):
         print("Ensemble activation")
 
         self.backbone = nn.DataParallel(

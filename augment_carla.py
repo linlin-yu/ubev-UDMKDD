@@ -44,7 +44,31 @@ def resize_image_by_height(image, new_height):
 
 
 def augment():
-    animals = ["bear", "elephant", "horse", "deer"]
+    animals = [
+        "bear",
+        "cow",
+        "horse",
+        "deer",
+        "donkey",
+        "elk",
+        "fox",
+        "lion",
+        "wolf",
+        "moose"
+    ]
+
+    sizes = [
+        [1.1, 2.75, 1.75],
+        [1.1, 2.25, 1.25],
+        [1.1, 2.5, 3],
+        [1.1, 2.3, 1.5],
+        [1.25, 2.5, 1.5],
+        [1.6, 2.6, 1.7],
+        [1, 2, 1.5],
+        [1.5, 2.5, 1.6],
+        [1.25, 2, 1.4],
+        [1.6, 2.6, 1.7],
+    ]
 
     cameras = [
         'left_front_camera',
@@ -53,13 +77,6 @@ def augment():
         'left_back_camera',
         'back_camera',
         'right_back_camera'
-    ]
-
-    sizes = [
-        [2.1, 5.5, 3.5],
-        [4.3, 10, 6],
-        [1.75, 3.4, 3.2],
-        [2.4, 4, 3],
     ]
 
     carla_data = CarlaDataset(args.data_dir, False)
@@ -137,6 +154,6 @@ if __name__ == "__main__":
     parser.add_argument("save_dir")
 
     args = parser.parse_args()
-    pseudo_path = './outputs/pseudo'
+    pseudo_path = './outputs/pseudo_f'
 
     augment()

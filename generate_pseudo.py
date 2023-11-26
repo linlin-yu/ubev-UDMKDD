@@ -48,16 +48,15 @@ def generate():
     refiner.vae.enable_xformers_memory_efficient_attention(attention_op=None)
     refiner = refiner.to(args.gpus)
 
-    # animals = ["bear", "horse", "deer", "elephant"]
-    animals = ["bike", "motorcycle"]
+    animals = ["bear", "horse", "deer", "moose", "cow", "donkey", "wolf", "fox", "elk", "lion"]
 
     for animal in animals:
         save_path = os.path.join(args.save_path, animal)
         os.makedirs(save_path, exist_ok=True)
 
         for i in trange(args.samples, desc=animal):
-            # prompt = f"a {animal} facing forwards. I want to see the whole body of the {animal}."
-            prompt = f"a {animal}. I want to see the entire {animal}"
+            prompt = f"a {animal} facing forwards. I want to see the whole body of the {animal}."
+            # prompt = f"a {animal}. I want to see the entire {animal}"
 
             image = pipe(prompt, output_type="latent").images[0]
             image = refiner(prompt=prompt, image=image).images[0]

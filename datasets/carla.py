@@ -113,10 +113,10 @@ class CarlaDataset(torch.utils.data.Dataset):
 def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pseudo=False):
     if pseudo:
         print("USING PSEUDO")
-        train_data = CarlaDataset(os.path.join(dataroot, "val_aug"), True)
-        val_data = CarlaDataset(os.path.join(dataroot, "val_aug"), False)
+        train_data = CarlaDataset(os.path.join(dataroot, "val_aug_new"), True)
+        val_data = CarlaDataset(os.path.join(dataroot, "val_aug_new"), False)
     elif ood:
-        train_data = CarlaDataset(os.path.join(dataroot, "train_aug"), True)
+        train_data = CarlaDataset(os.path.join(dataroot, "train_aug_new"), True)
         val_data = CarlaDataset(os.path.join(dataroot, "ood"), False)
     else:
         train_data = CarlaDataset(os.path.join(dataroot, "train"), True)

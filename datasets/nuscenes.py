@@ -108,8 +108,11 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 if a:
                     aug.append(rec)
 
+        print(len(ood))
         if self.ood and self.mode == 'val':
             return ood
+        elif self.ood and self.mode == 'train':
+            return aug
         else:
             return id
 

@@ -127,8 +127,6 @@ if __name__ == "__main__":
     print(f"IOU: {iou}")
     print(f"Brier: {brier:.3f}")
 
-    aleatoric *= 1.1
-
     if args.save:
         torch.save(predictions, os.path.join(config['logdir'], 'prediction.pt'))
         torch.save(ground_truth, os.path.join(config['logdir'], 'ground_truth.pt'))
@@ -197,7 +195,7 @@ if __name__ == "__main__":
         fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'} - {name}")
 
         save_path = os.path.join(config['logdir'], f"rocpr_{'o' if is_ood else 'm'}_{name}.png")
-
+        print(get_iou(oods, epistemic))
         print(f"AUROC: {auroc:.3f} AUPR: {aupr:.3f}")
     else:
         raise ValueError("Please pick a valid metric.")
