@@ -74,9 +74,15 @@ class CarlaDataset(torch.utils.data.Dataset):
         label_r.close()
 
         empty = np.ones(self.bev_dimension[:2])
+
         road = mask(label, (128, 64, 128))
         lane = mask(label, (157, 234, 50))
         vehicles = mask(label, (0, 0, 142))
+
+        if np.sum(vehicles) < 5:
+            road = mask(label, (128, 64, 128))
+            lane = mask(label, (50, 234, 157))
+            vehicles = mask(label, (142, 0, 0))
 
         ood = mask(label, (0, 0, 0))
         bounding_boxes = find_bounding_boxes(ood)
