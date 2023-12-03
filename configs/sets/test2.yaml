@@ -1,0 +1,19 @@
+noreg:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/carla/fiery_evidential/19.pt'
+  label: "No regularization"
+
+.01:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/aug/.01_new/19.pt'
+  label: "OOD Reg=.01"
+
+.1:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/aug/.1_new/19.pt'
+  label: "OOD Reg=.1"
+
+1:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/aug/1_new/19.pt'
+  label: "OOD Reg=1"

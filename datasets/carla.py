@@ -78,7 +78,11 @@ class CarlaDataset(torch.utils.data.Dataset):
         road = mask(label, (128, 64, 128))
         lane = mask(label, (157, 234, 50))
         vehicles = mask(label, (0, 0, 142))
-        
+
+        if np.sum(vehicles) < 5:
+            lane = mask(label, (50, 234, 157))
+            vehicles = mask(label, (142, 0, 0))
+
         ood = mask(label, (0, 0, 0))
         bounding_boxes = find_bounding_boxes(ood)
         ood = draw_bounding_boxes(bounding_boxes)
@@ -127,8 +131,8 @@ def compile_data(version, dataroot, batch_size=8, num_workers=16, ood=False, pse
         g = torch.Generator()
         g.manual_seed(0)
 
-        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=512, generator=g)
-        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=512, generator=g)
+        train_sampler = torch.utils.data.RandomSampler(train_data, num_samples=256, generator=g)
+        val_sampler = torch.utils.data.RandomSampler(val_data, num_samples=256, generator=g)
 
         train_loader = torch.utils.data.DataLoader(
             train_data,
