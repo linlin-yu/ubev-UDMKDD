@@ -14,8 +14,9 @@ np.random.seed(0)
 
 
 def train():
+    global colors, n_classes, classes, weights
+
     if config['five']:
-        global colors, n_classes, classes, weights
         colors = torch.tensor([
             [0, 0, 255],
             [255, 0, 0],
@@ -25,7 +26,17 @@ def train():
         ])
 
         n_classes, classes = 5, ["vehicle", "road", "lane", "background", "ood"]
-        weights = torch.tensor([3., 1., 2., 1., 2.])
+        weights = torch.tensor([3., 1., 2., 1., 4.])
+        change_params(n_classes, classes, colors, weights)
+    elif config['three']:
+        colors = torch.tensor([
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 0],
+        ])
+
+        n_classes, classes = 3, ["road", "lane", "background"]
+        weights = torch.tensor([1., 2., 1.])
         change_params(n_classes, classes, colors, weights)
 
     if config['loss'] == 'focal':
@@ -104,11 +115,15 @@ def train():
             if config['five']:
                 labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
                 labels = torch.cat((labels, ood[:, None]), dim=1)
+            elif config['three']:
+                ood = labels[:, 0]
+                labels = labels[:, 1:]
 
             t_0 = time()
 
-            if config['ood']:
-                outs, preds, loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
+            oodl = None
+            if config['ood'] or config['three']:
+                outs, preds, loss, oodl = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
             else:
                 outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
 
@@ -123,7 +138,10 @@ def train():
                 writer.add_scalar('train/step_time', time() - t_0, step)
                 writer.add_scalar('train/loss', loss, step)
 
-                if config['ood']:
+                if oodl is not None:
+                    writer.add_scalar('train/ood_loss', oodl, step)
+
+                if config['ood'] or config['three']:
                     save_unc(model.epistemic(outs), ood, config['logdir'])
                 save_pred(preds, labels, config['logdir'])
 
@@ -164,6 +182,7 @@ if __name__ == "__main__":
     parser.add_argument('--gamma', required=False, type=float)
     parser.add_argument('--ol', required=False, type=float)
     parser.add_argument('--five', default=False, action='store_true')
+    parser.add_argument('--three', default=False, action='store_true')
 
     args = parser.parse_args()
 

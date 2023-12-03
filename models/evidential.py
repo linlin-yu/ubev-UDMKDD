@@ -62,10 +62,11 @@ class Evidential(Model):
 
         A = A[(1 - ood).unsqueeze(1).bool()].mean()
 
-        if self.ood_lambda > 0:
-            A += ood_reg(alpha, ood) * self.ood_lambda
+        oreg = ood_reg(alpha, ood) * self.ood_lambda
 
-        return A
+        A += oreg * self.ood_lambda
+
+        return A, oreg
 
     def train_step_ood(self, images, intrinsics, extrinsics, labels, ood):
         self.opt.zero_grad(set_to_none=True)
@@ -73,13 +74,13 @@ class Evidential(Model):
         outs = self(images, intrinsics, extrinsics)
         preds = self.activate(outs)
 
-        loss = self.loss_ood(outs, labels.to(self.device), ood)
+        loss, oodl = self.loss_ood(outs, labels.to(self.device), ood)
         loss.backward()
 
         nn.utils.clip_grad_norm_(self.parameters(), 5.0)
         self.opt.step()
 
-        return outs, preds, loss
+        return outs, preds, loss, oodl
 
     def forward(self, images, intrinsics, extrinsics, limit=None):
         evidence = self.backbone(images, intrinsics, extrinsics).relu()

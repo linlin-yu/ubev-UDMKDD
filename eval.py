@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
         save_path = os.path.join(config['logdir'], f"rocpr_{'o' if is_ood else 'm'}_{name}.png")
 
-        print(f"UNCERTAINTY IOU: {get_iou(uncertainty_scores[:, None], uncertainty_labels[:, None])}")
+        print(f"UNCERTAINTY IOU: {get_iou(torch.cat((uncertainty_scores[:, None], 1-uncertainty_scores[:, None]), dim=1), torch.cat((uncertainty_labels[:, None].long(), (~uncertainty_labels[:, None]).long()), dim=1))}")
         print(f"AUROC: {auroc:.3f} AUPR: {aupr:.3f}")
     else:
         raise ValueError("Please pick a valid metric.")

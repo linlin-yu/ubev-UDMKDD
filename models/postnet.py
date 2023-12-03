@@ -48,7 +48,7 @@ class Postnet(Model):
     def activate(alpha):
         return alpha / torch.sum(alpha, dim=1, keepdim=True)
 
-    def loss(self, alpha, y):
+    def loss_ood(self, alpha, y, ood):
         if self.loss_type == 'ce':
             A = uce_loss(alpha, y, weights=self.weights)
         elif self.loss_type == 'focal':
@@ -57,9 +57,15 @@ class Postnet(Model):
             raise NotImplementedError()
 
         if self.beta_lambda > 0:
-            A += entropy_reg(alpha, self.beta_lambda)
+            A += entropy_reg(alpha, beta_reg=self.beta_lambda)
 
-        return A.mean()
+        A = A[(1 - ood).unsqueeze(1).bool()].mean()
+
+        oreg = ood_reg(alpha, ood) * self.ood_lambda
+
+        A += oreg * self.ood_lambda
+
+        return A, oreg
 
     def loss_ood(self, alpha, y, ood):
         A = uce_loss(alpha, y, weights=self.weights)
