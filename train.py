@@ -4,6 +4,7 @@ from time import time
 from tensorboardX import SummaryWriter
 from tools.metrics import *
 from tools.utils import *
+import importlib
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -13,6 +14,31 @@ np.random.seed(0)
 
 
 def train():
+    global colors, n_classes, classes, weights
+
+    if config['five']:
+        colors = torch.tensor([
+            [0, 0, 255],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 0],
+            [255, 255, 255],
+        ])
+
+        n_classes, classes = 5, ["vehicle", "road", "lane", "background", "ood"]
+        weights = torch.tensor([3., 1., 2., 1., 4.])
+        change_params(n_classes, classes, colors, weights)
+    elif config['three']:
+        colors = torch.tensor([
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 0],
+        ])
+
+        n_classes, classes = 3, ["road", "lane", "background"]
+        weights = torch.tensor([1., 2., 1.])
+        change_params(n_classes, classes, colors, weights)
+
     if config['loss'] == 'focal':
         config['learning_rate'] *= 4
 
@@ -20,7 +46,7 @@ def train():
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=is_ood,
+        ood=config['ood'] or config['five'],
     )
 
     model = models[config['type']](
@@ -61,7 +87,7 @@ def train():
     if 'ol' in config:
         model.ood_lambda = config['ol']
 
-    if is_ood:
+    if config['ood']:
         print(f"OOD LAMBDA: {model.ood_lambda}")
 
     print("--------------------------------------------------")
@@ -86,10 +112,18 @@ def train():
         writer.add_scalar('train/epoch', epoch, step)
 
         for images, intrinsics, extrinsics, labels, ood in train_loader:
+            if config['five']:
+                labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
+                labels = torch.cat((labels, ood[:, None]), dim=1)
+            elif config['three']:
+                ood = labels[:, 0]
+                labels = labels[:, 1:]
+
             t_0 = time()
 
-            if is_ood:
-                outs, preds, loss = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
+            oodl = None
+            if config['ood'] or config['three']:
+                outs, preds, loss, oodl = model.train_step_ood(images, intrinsics, extrinsics, labels, ood)
             else:
                 outs, preds, loss = model.train_step(images, intrinsics, extrinsics, labels)
 
@@ -104,7 +138,10 @@ def train():
                 writer.add_scalar('train/step_time', time() - t_0, step)
                 writer.add_scalar('train/loss', loss, step)
 
-                if is_ood:
+                if oodl is not None:
+                    writer.add_scalar('train/ood_loss', oodl, step)
+
+                if config['ood'] or config['three']:
                     save_unc(model.epistemic(outs), ood, config['logdir'])
                 save_pred(preds, labels, config['logdir'])
 
@@ -118,7 +155,7 @@ def train():
 
         model.eval()
 
-        predictions, ground_truth, oods, aleatoric, epistemic = run_loader(model, val_loader)
+        predictions, ground_truth, oods, aleatoric, epistemic = run_loader(model, val_loader, config)
 
         iou = get_iou(predictions, ground_truth)
 
@@ -144,6 +181,8 @@ if __name__ == "__main__":
     parser.add_argument('--loss', default="ce", required=False, type=str)
     parser.add_argument('--gamma', required=False, type=float)
     parser.add_argument('--ol', required=False, type=float)
+    parser.add_argument('--five', default=False, action='store_true')
+    parser.add_argument('--three', default=False, action='store_true')
 
     args = parser.parse_args()
 
