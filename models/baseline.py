@@ -30,4 +30,8 @@ class Baseline(Model):
             raise NotImplementedError()
 
     def forward(self, images, intrinsics, extrinsics):
+        if self.tsne:
+            print("Returning intermediate")
+            return self.backbone(images, intrinsics, extrinsics)
+
         return self.backbone(images, intrinsics, extrinsics)

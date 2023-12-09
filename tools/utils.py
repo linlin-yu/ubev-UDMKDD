@@ -58,12 +58,16 @@ def run_loader(model, loader, config):
     oods = []
     aleatoric = []
     epistemic = []
+    raw = []
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
             if config['five']:
                 labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
                 labels = torch.cat((labels, ood[:, None]), dim=1)
+            elif config['three']:
+                ood = labels[:, 0]
+                labels = labels[:, 1:]
 
             outs = model(images, intrinsics, extrinsics).detach().cpu()
 
@@ -72,12 +76,14 @@ def run_loader(model, loader, config):
             oods.append(ood)
             aleatoric.append(model.aleatoric(outs))
             epistemic.append(model.epistemic(outs))
+            raw.append(outs)
 
     return (torch.cat(predictions, dim=0),
             torch.cat(ground_truth, dim=0),
             torch.cat(oods, dim=0),
             torch.cat(aleatoric, dim=0),
-            torch.cat(epistemic, dim=0))
+            torch.cat(epistemic, dim=0),
+            torch.cat(raw, dim=0))
 
 
 def map_rgb(onehot, ego=False):

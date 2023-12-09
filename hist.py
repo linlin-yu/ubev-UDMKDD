@@ -20,14 +20,15 @@ def sorted_alphanumeric(data):
 
 
 if __name__ == "__main__":
-    sets = ['0', '.1', '.5', '1', '2', '5']
+    # sets = ['0', '.1', '.5', '1', '2', '5']
+    sets = ['true3']
 
     with open('./configs/eval_carla_fiery_evidential.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
     split = "mini"
     dataroot = f"../data/carla"
-    path = "outputs/grid_gamma_ood"
+    path = "outputs/aug"
 
     for s in sets:
         os.makedirs(f"./{path}/hists_ood/{s}")
@@ -39,14 +40,19 @@ if __name__ == "__main__":
                 pre = os.path.join(f"./{path}/{s}", ch)
                 config['pretrained'] = pre
                 config['gpus'] = [4, 5, 6, 7]
+                config['five'] = False
+                config['three'] = False
+                config['ood'] = True
 
                 torch.manual_seed(0)
                 np.random.seed(0)
 
-                predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, True, 'train', split, dataroot)
+                predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, True, 'val', split, dataroot)
                 uncertainty_scores = epistemic.squeeze(1)
                 uncertainty_labels = oods
 
+                unc_iou = get_iou(torch.cat((uncertainty_scores[:, None], 1 - uncertainty_scores[:, None]), dim=1),
+                        torch.cat((uncertainty_labels[:, None].long(), (~uncertainty_labels[:, None]).long()), dim=1))
                 iou = get_iou(predictions, ground_truth)
 
                 fpr, tpr, rec, pr, auroc, aupr, no_skill = roc_pr(uncertainty_scores, uncertainty_labels)
@@ -55,6 +61,7 @@ if __name__ == "__main__":
                 writer.add_scalar("hist/auroc", auroc, int(ch.split(".")[0]))
                 writer.add_scalar("hist/aupr", aupr, int(ch.split(".")[0]))
                 writer.add_scalar("hist/ece", e, int(ch.split(".")[0]))
+                writer.add_scalar("hist/unc_iou", unc_iou, int(ch.split(".")[0]))
 
                 writer.add_scalar("hist/vehicle_iou", iou[0], int(ch.split(".")[0]))
                 writer.add_scalar("hist/road_iou", iou[1], int(ch.split(".")[0]))

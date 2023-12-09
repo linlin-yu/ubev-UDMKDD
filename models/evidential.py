@@ -64,7 +64,7 @@ class Evidential(Model):
 
         oreg = ood_reg(alpha, ood) * self.ood_lambda
 
-        A += oreg * self.ood_lambda
+        A += oreg
 
         return A, oreg
 
@@ -83,6 +83,10 @@ class Evidential(Model):
         return outs, preds, loss, oodl
 
     def forward(self, images, intrinsics, extrinsics, limit=None):
+        if self.tsne:
+            print("Returning intermediate")
+            return self.backbone(images, intrinsics, extrinsics)
+
         evidence = self.backbone(images, intrinsics, extrinsics).relu()
 
         if limit is not None:

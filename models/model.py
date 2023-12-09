@@ -30,6 +30,7 @@ class Model(nn.Module):
         self.n_classes = n_classes
         self.opt = opt
         self.gamma = 2
+        self.tsne = False
 
         self.create_backbone(backbone)
         print(f"Using weights: {self.weights}")

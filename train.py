@@ -155,14 +155,29 @@ def train():
 
         model.eval()
 
-        predictions, ground_truth, oods, aleatoric, epistemic = run_loader(model, val_loader, config)
+        predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader, config)
 
         iou = get_iou(predictions, ground_truth)
 
         for i in range(0, n_classes):
             writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)
 
+        oodl = None
+        if config['ood'] or config['three']:
+            val_loss, oodl = model.loss_ood(raw.to(model.device), ground_truth.to(model.device), oods.to(model.device))
+        else:
+            val_loss = model.loss_ood(raw.to(model.device), ground_truth.to(model.device))
+
+        if oodl is not None:
+            writer.add_scalar('val/ood_loss', oodl, step)
+        writer.add_scalar(f"val/loss", val_loss, epoch)
+
         print(f"Validation mIOU: {iou}")
+
+        if oodl is not None:
+            print(f"Validation loss: {val_loss}, OOD Reg.: {oodl}")
+        else:
+            print(f"Validation loss: {val_loss}")
 
         model.save(os.path.join(config['logdir'], f'{epoch}.pt'))
 
