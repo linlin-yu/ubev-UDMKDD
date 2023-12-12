@@ -42,6 +42,7 @@ if __name__ == "__main__":
                 config['gpus'] = [4, 5, 6, 7]
                 config['five'] = False
                 config['three'] = False
+                config['tsne'] = False
                 config['ood'] = True
 
                 torch.manual_seed(0)
@@ -49,7 +50,7 @@ if __name__ == "__main__":
 
                 predictions, ground_truth, oods, aleatoric, epistemic, raw = eval(config, True, 'val', split, dataroot)
                 uncertainty_scores = epistemic.squeeze(1)
-                uncertainty_labels = oods
+                uncertainty_labels = oods.bool()
 
                 unc_iou = get_iou(torch.cat((uncertainty_scores[:, None], 1 - uncertainty_scores[:, None]), dim=1),
                         torch.cat((uncertainty_labels[:, None].long(), (~uncertainty_labels[:, None]).long()), dim=1))
@@ -61,7 +62,7 @@ if __name__ == "__main__":
                 writer.add_scalar("hist/auroc", auroc, int(ch.split(".")[0]))
                 writer.add_scalar("hist/aupr", aupr, int(ch.split(".")[0]))
                 writer.add_scalar("hist/ece", e, int(ch.split(".")[0]))
-                writer.add_scalar("hist/unc_iou", unc_iou, int(ch.split(".")[0]))
+                writer.add_scalar("hist/unc_iou", unc_iou[0], int(ch.split(".")[0]))
 
                 writer.add_scalar("hist/vehicle_iou", iou[0], int(ch.split(".")[0]))
                 writer.add_scalar("hist/road_iou", iou[1], int(ch.split(".")[0]))

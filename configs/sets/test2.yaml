@@ -1,19 +1,19 @@
-noreg:
+4:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/carla/fiery_evidential/19.pt'
-  label: "No regularization"
+  path: 'outputs/grid_nl/dist_4/49.pt'
+  label: "k=4"
 
-.01:
+8:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/aug/.01_new/19.pt'
-  label: "OOD Reg=.01"
+  path: 'outputs/grid_nl/dist_8/49.pt'
+  label: "k=8"
 
-.1:
+16:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/aug/.1_new/19.pt'
-  label: "OOD Reg=.1"
+  path: 'outputs/grid_nl/dist_16/49.pt'
+  label: "k=16"
 
-1:
+32:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/aug/1_new/19.pt'
-  label: "OOD Reg=1"
+  path: 'outputs/grid_nl/dist_32/49.pt'
+  label: "k=32"

@@ -66,7 +66,7 @@ def eval(config, is_ood, set, split, dataroot):
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         ood=not config['three'] and (config['ood'] or config['five']),
-        pseudo=(config['ood'] or config['five']) and set == 'train'
+        pseudo=config['pseudo']
     )
 
     model = models[config['type']](
@@ -135,8 +135,6 @@ def eval(config, is_ood, set, split, dataroot):
     os.makedirs(config['logdir'], exist_ok=True)
 
     predictions, ground_truths, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
-    z = 0
-    nz = 0
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
@@ -146,10 +144,6 @@ def eval(config, is_ood, set, split, dataroot):
             elif config['three']:
                 ood = labels[:, 0]
                 labels = labels[:, 1:]
-
-            if ood.sum() == 0:
-                z += 1
-            else: nz += 1
 
             model.eval()
             model.training = False
@@ -163,14 +157,12 @@ def eval(config, is_ood, set, split, dataroot):
             raw.append(outs)
 
             if is_ood:
-                save_unc(model.epistemic(outs), ood, config['logdir'])
+                save_unc(model.epistemic(outs)/model.epistemic(outs).max(), ood, config['logdir'])
             else:
                 save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1),
                          config['logdir'])
 
             save_pred(model.activate(outs), labels, config['logdir'])
-
-    print(z / (z + nz))
 
     return (torch.cat(predictions, dim=0),
             torch.cat(ground_truths, dim=0),
@@ -196,6 +188,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--tsne', default=False, action='store_true')
     parser.add_argument('--five', default=False, action='store_true')
     parser.add_argument('--three', default=False, action='store_true')
+    parser.add_argument('--pseudo', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -233,6 +226,7 @@ if __name__ == "__main__":
     if is_ood:
         uncertainty_scores = epistemic.squeeze(1)
         uncertainty_labels = oods.bool()
+        print("EVAL OOD")
     else:
         uncertainty_scores = aleatoric.squeeze(1)
         uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()

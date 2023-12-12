@@ -6,6 +6,24 @@ from PIL import Image
 from pyquaternion import Quaternion
 from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
+from scipy.ndimage import distance_transform_edt
+
+
+def dist_true(masks):
+    batch_size = masks.size(0)
+    distances_batch = []
+
+    for i in range(batch_size):
+        mask_np = masks[i].cpu().numpy()
+
+        if mask_np.sum() == 0:
+            distances_batch.append(torch.full((200, 200), 199))
+        else:
+            inverted_mask = np.logical_not(mask_np)
+            distances = distance_transform_edt(inverted_mask)
+            distances_batch.append(torch.from_numpy(distances))
+
+    return torch.stack(distances_batch, dim=0)
 
 
 def euler_to_quaternion(yaw, pitch, roll):

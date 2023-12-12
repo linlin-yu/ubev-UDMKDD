@@ -1,9 +1,34 @@
-evidential_uce:
+4:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/carla/fiery_evidential/19.pt'
-  label: "Evidential UCE"
+  path: 'outputs/grid_nl/vac_4/49.pt'
+  label: "k=4"
 
-evidential_ufocal:
+8:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/carla/fiery_evidential_focal_gamma=.1_new/19.pt'
-  label: "Evidential UFocal"
+  path: 'outputs/grid_nl/vac_16/49.pt'
+  label: "k=8"
+
+16:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/grid_nl/vac_32/49.pt'
+  label: "k=16"
+
+32:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/grid_nl/vac_32/49.pt'
+  label: "k=32"
+
+64:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/grid_nl/vac_64/49.pt'
+  label: "k=64"
+
+128:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/grid_nl/vac_128/49.pt'
+  label: "k=128"
+
+256:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/grid_nl/vac_256/49.pt'
+  label: "k=256"

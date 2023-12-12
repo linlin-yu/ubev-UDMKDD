@@ -34,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--logdir', required=False)
     parser.add_argument('-g', '--gpus', nargs='+', required=False)
     parser.add_argument('-s', '--lset', default='val', required=False)
+    parser.add_argument('-t', '--title', required=False)
 
     args = parser.parse_args()
 
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     metric = args.metric
     is_ood = args.ood
     lset = args.lset
+    title = args.title
 
     scale = 1.5
 
@@ -104,13 +106,14 @@ if __name__ == "__main__":
     no_skill_total = 0
 
     for name in names:
-        torch.manual_seed(1)
-        np.random.seed(1)
+        torch.manual_seed(0)
+        np.random.seed(0)
 
         with open(set[name]['config'], 'r') as file:
             config = yaml.safe_load(file)
             config['pretrained'] = set[name]['path']
             config['logdir'] = f"outputs/graph/{name}"
+            config['three'] = config['five'] = config['tsne'] = False
 
             print(config['pretrained'])
             if args.gpus is not None:
@@ -118,6 +121,7 @@ if __name__ == "__main__":
 
         split = "mini"
         dataroot = f"../data/{config['dataset']}"
+        config['ood'] = is_ood
 
         predictions, ground_truth, oods, aleatoric, epistemic, raws = eval(config, is_ood, lset, split, dataroot)
 
@@ -217,6 +221,10 @@ if __name__ == "__main__":
         ax1.legend(frameon=True)
         ax2.legend(frameon=True)
 
-    fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'}")
+    if title is None:
+        fig.suptitle(f"{'OOD' if is_ood else 'Misclassification'}")
+    else:
+        fig.suptitle(title)
+
     save_path = f"{logdir}/{metric}_{'o' if is_ood else 'm'}_{set_name}.png"
     fig.savefig(save_path)

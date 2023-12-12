@@ -47,6 +47,7 @@ def train():
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         ood=config['ood'] or config['five'],
+        pseudo=True
     )
 
     model = models[config['type']](
@@ -86,6 +87,14 @@ def train():
 
     if 'ol' in config:
         model.ood_lambda = config['ol']
+
+    if 'k' in config:
+        model.k = config['k']
+        print(f"Scaling with {model.scale}")
+
+    if 'scale' in config:
+        model.scale = config['scale']
+        print(f"Scaling with {model.scale} @ k={model.k}")
 
     if config['ood']:
         print(f"OOD LAMBDA: {model.ood_lambda}")
@@ -162,14 +171,19 @@ def train():
         for i in range(0, n_classes):
             writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)
 
-        oodl = None
         if config['ood'] or config['three']:
             val_loss, oodl = model.loss_ood(raw.to(model.device), ground_truth.to(model.device), oods.to(model.device))
-        else:
-            val_loss = model.loss_ood(raw.to(model.device), ground_truth.to(model.device))
-
-        if oodl is not None:
             writer.add_scalar('val/ood_loss', oodl, step)
+
+            uncertainty_scores = epistemic[:200].squeeze(1)
+            uncertainty_labels = oods[:200].bool()
+            fpr, tpr, rec, pr, auroc, aupr, _ = roc_pr(uncertainty_scores, uncertainty_labels)
+            writer.add_scalar(f"val/ood_auroc", auroc, epoch)
+            writer.add_scalar(f"val/ood_aupr", aupr, epoch)
+            print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}")
+        else:
+            val_loss = model.loss(raw.to(model.device), ground_truth.to(model.device))
+
         writer.add_scalar(f"val/loss", val_loss, epoch)
 
         print(f"Validation mIOU: {iou}")
@@ -198,6 +212,8 @@ if __name__ == "__main__":
     parser.add_argument('--ol', required=False, type=float)
     parser.add_argument('--five', default=False, action='store_true')
     parser.add_argument('--three', default=False, action='store_true')
+    parser.add_argument('--scale', required=False, type=str)
+    parser.add_argument('--k', required=False, type=float)
 
     args = parser.parse_args()
 
