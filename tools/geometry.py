@@ -203,6 +203,12 @@ def find_bounding_boxes(mask):
 
         for contour in contours:
             bounding_box = cv2.minAreaRect(contour)
+
+            # fixes problem of void regions in BEV camera
+            width, height = bounding_box[1]
+            area = width * height
+            if area > 100:
+                continue
             bounding_boxes.append(bounding_box)
 
     return bounding_boxes

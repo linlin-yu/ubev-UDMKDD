@@ -1,34 +1,14 @@
-4:
+none:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/grid_nl/vac_4/49.pt'
-  label: "k=4"
+  path: 'outputs/carla/fiery_evidential/19.pt'
+  label: "No regularization"
 
-8:
+reg:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/grid_nl/vac_16/49.pt'
-  label: "k=8"
+  path: 'outputs/aug/none_.1/19.pt'
+  label: "OOD Regularization"
 
-16:
+vac:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/grid_nl/vac_32/49.pt'
-  label: "k=16"
-
-32:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/grid_nl/vac_32/49.pt'
-  label: "k=32"
-
-64:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/grid_nl/vac_64/49.pt'
-  label: "k=64"
-
-128:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/grid_nl/vac_128/49.pt'
-  label: "k=128"
-
-256:
-  config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/grid_nl/vac_256/49.pt'
-  label: "k=256"
+  path: 'outputs/aug/vac_128/19.pt'
+  label: "OOD Regularization + Vacuity"

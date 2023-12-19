@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import torch
 from time import time
@@ -20,6 +21,7 @@ def get_iou(preds, labels):
         for i in range(classes):
             p = (pmax == i).bool()
             l = (lmax == i).bool()
+
             intersect = (p & l).sum().float().item()
             union = (p | l).sum().float().item()
             iou[i] = intersect / union if union > 0 else 0
@@ -146,8 +148,11 @@ def roc_pr(uncertainty_scores, uncertainty_labels, window_size=1):
         y_true = np.array(y_true)
         y_score = np.array(y_score)
 
-    pr, rec, _ = precision_recall_curve(y_true, y_score)
-    fpr, tpr, _ = roc_curve(y_true, y_score)
+    pr, rec, tr = precision_recall_curve(y_true, y_score, drop_intermediate=True)
+    fpr, tpr, _ = roc_curve(y_true, y_score, drop_intermediate=True)
+
+    PrecisionRecallDisplay.from_predictions(y_true, y_score)
+    plt.savefig("test.png")
 
     aupr = auc(rec, pr)
     auroc = auc(fpr, tpr)

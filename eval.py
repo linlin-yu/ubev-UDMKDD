@@ -184,6 +184,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-m', '--metric', default="rocpr", required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
+    parser.add_argument('--num_workers', required=False, type=int)
     parser.add_argument('--set', default="val", required=False, type=str)
     parser.add_argument('-t', '--tsne', default=False, action='store_true')
     parser.add_argument('--five', default=False, action='store_true')
@@ -214,6 +215,7 @@ if __name__ == "__main__":
     print(f"ECE: {ece:.3f}")
     print(f"IOU: {iou}")
     print(f"Brier: {brier:.3f}")
+    print(f"Mean epis: {epistemic.mean()}")
 
     if args.save:
         torch.save(predictions, os.path.join(config['logdir'], 'prediction.pt'))

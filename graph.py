@@ -35,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gpus', nargs='+', required=False)
     parser.add_argument('-s', '--lset', default='val', required=False)
     parser.add_argument('-t', '--title', required=False)
+    parser.add_argument('--pseudo', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -122,6 +123,7 @@ if __name__ == "__main__":
         split = "mini"
         dataroot = f"../data/{config['dataset']}"
         config['ood'] = is_ood
+        config['pseudo'] = args.pseudo
 
         predictions, ground_truth, oods, aleatoric, epistemic, raws = eval(config, is_ood, lset, split, dataroot)
 
