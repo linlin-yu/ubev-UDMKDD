@@ -1,25 +1,14 @@
+import cv2
 import numpy as np
 import torch
 from time import time
 
+from sklearn.manifold import TSNE
 from sklearn.metrics import *
 from sklearn.calibration import *
 import torchmetrics
+import matplotlib.pyplot as plt
 
-
-# def get_iou(preds, labels):
-#     classes = preds.shape[1]
-#     iou = [0]*classes
-#
-#     with torch.no_grad():
-#         for i in range(classes):
-#             pred = (preds[:, i, :, :] >= .5)
-#             tgt = labels[:, i, :, :].bool()
-#             intersect = (pred & tgt).sum().float().item()
-#             union = (pred | tgt).sum().float().item()
-#             iou[i] = intersect/union if union > 0 else 0
-#
-#     return iou
 
 def get_iou(preds, labels):
     classes = preds.shape[1]
@@ -32,6 +21,7 @@ def get_iou(preds, labels):
         for i in range(classes):
             p = (pmax == i).bool()
             l = (lmax == i).bool()
+
             intersect = (p & l).sum().float().item()
             union = (p | l).sum().float().item()
             iou[i] = intersect / union if union > 0 else 0
@@ -54,6 +44,20 @@ def patch_metrics(uncertainty_scores, uncertainty_labels):
         ugis.append(ugi)
 
     return pavpus, agcs, ugis, thresholds, auc(thresholds, pavpus), auc(thresholds, agcs), auc(thresholds, ugis)
+
+
+def unc_iou(uncertainty_scores, uncertainty_labels):
+    thresholds = np.linspace(0, 1, 11)
+    ious = []
+
+    for thresh in thresholds:
+        with torch.no_grad():
+            label = uncertainty_labels.bool()
+            pred = (uncertainty_scores > thresh).bool()
+            union = (label | pred)
+            ious.append((label & pred) / (union if union > 0 else 1))
+
+    return ious, thresholds
 
 
 def calculate_pavpu(uncertainty_scores, uncertainty_labels, accuracy_threshold=0.5, uncertainty_threshold=0.2,
@@ -144,8 +148,11 @@ def roc_pr(uncertainty_scores, uncertainty_labels, window_size=1):
         y_true = np.array(y_true)
         y_score = np.array(y_score)
 
-    pr, rec, _ = precision_recall_curve(y_true, y_score)
-    fpr, tpr, _ = roc_curve(y_true, y_score)
+    pr, rec, tr = precision_recall_curve(y_true, y_score, drop_intermediate=True)
+    fpr, tpr, _ = roc_curve(y_true, y_score, drop_intermediate=True)
+
+    PrecisionRecallDisplay.from_predictions(y_true, y_score)
+    plt.savefig("test.png")
 
     aupr = auc(rec, pr)
     auroc = auc(fpr, tpr)
@@ -169,3 +176,21 @@ def ece(y_pred, y_true, n_bins=10):
 
 def brier_score(y_pred, y_true):
     return torch.nn.functional.mse_loss(y_pred, y_true)
+
+
+def tsne(y_pred, y_true, perplexity=10):
+    y_true = y_true.argmax(dim=1)
+    X_tsne = TSNE(n_components=2, learning_rate='auto', init = 'random', perplexity=perplexity).fit_transform(y_pred)
+
+    plt.figure(figsize=(12, 8))
+    colors = ['r', 'g', 'b', 'y']
+
+    for i in range(4):
+        mask = y_true == i
+
+    plt.scatter(X_tsne[mask, 0], X_tsne[mask, 1], c=colors[i], label=f'Class {i}')
+    plt.legend()
+    plt.title('t-SNE Visualization of Semantic Segmentation Classes')
+    plt.xlabel('t-SNE Feature 1')
+    plt.ylabel('t-SNE Feature 2')
+    plt.show()

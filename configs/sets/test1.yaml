@@ -1,9 +1,14 @@
-evidential_uce:
+none:
   config: 'configs/eval_carla_fiery_evidential.yaml'
   path: 'outputs/carla/fiery_evidential/19.pt'
-  label: "Evidential UCE"
+  label: "No regularization"
 
-evidential_ufocal:
+reg:
   config: 'configs/eval_carla_fiery_evidential.yaml'
-  path: 'outputs/carla/fiery_evidential_focal_gamma=.1_new/19.pt'
-  label: "Evidential UFocal"
+  path: 'outputs/aug/none_.1/19.pt'
+  label: "OOD Regularization"
+
+vac:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/aug/vac_128/19.pt'
+  label: "OOD Regularization + Vacuity"

@@ -91,7 +91,7 @@ def entropy_reg(alpha, beta_reg=.0005):
     return -beta_reg * reg
 
 
-def ood_reg(alpha, ood):
+def ood_reg(alpha, ood, weight=None):
     if ood.sum() == 0:
         return 0
 
@@ -101,6 +101,9 @@ def ood_reg(alpha, ood):
     target_d = D.Dirichlet(torch.ones_like(alpha))
 
     reg = D.kl.kl_divergence(alpha_d, target_d).unsqueeze(1)
+
+    if weight is not None:
+        reg *= weight
 
     return reg[ood.unsqueeze(1).bool()].mean()
 

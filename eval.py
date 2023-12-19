@@ -1,5 +1,6 @@
 import seaborn as sns
 import torch.nn.functional
+import pandas as pd
 
 torch.set_printoptions(precision=10)
 
@@ -20,13 +21,52 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 
+def scatter(x, classes, colors):
+    cps_df = pd.DataFrame(columns=['CP1', 'CP2', 'target'],
+                          data=np.column_stack((x, colors)))
+    cps_df['target'] = cps_df['target'].astype(int)
+    cps_df.head()
+    grid = sns.FacetGrid(cps_df, hue="target", height=20, legend_out=False)
+    plot = grid.map(plt.scatter, 'CP1', 'CP2')
+    plot.add_legend()
+    for t, l in zip(plot._legend.texts, classes):
+        t.set_text(l)
+
+    return plot
+
+
 def eval(config, is_ood, set, split, dataroot):
+    global colors, n_classes, classes, weights
+
+    if config['five']:
+        colors = torch.tensor([
+            [0, 0, 255],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 0],
+            [255, 255, 255],
+        ])
+
+        n_classes, classes = 5, ["vehicle", "road", "lane", "background", "ood"]
+        weights = torch.tensor([3., 1., 2., 1., 4.])
+        change_params(n_classes, classes, colors, weights)
+    elif config['three']:
+        colors = torch.tensor([
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 0],
+        ])
+
+        n_classes, classes = 3, ["road", "lane", "background"]
+        weights = torch.tensor([1., 2., 1.])
+        change_params(n_classes, classes, colors, weights)
+
     train_loader, val_loader = datasets[config['dataset']](
         split, dataroot,
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        ood=is_ood,
-        pseudo=is_ood and set == 'train'
+        ood=not config['three'] and (config['ood'] or config['five']),
+        pseudo=config['pseudo']
     )
 
     model = models[config['type']](
@@ -55,12 +95,56 @@ def eval(config, is_ood, set, split, dataroot):
     print(f"Pretrained: {config['pretrained']} ")
     print("--------------------------------------------------")
 
+    if config['tsne']:
+        print("Running TSNE...")
+
+        tsne = TSNE(n_components=2, n_jobs=-1, perplexity=50)
+
+        model.tsne = True
+
+        tsne_path = os.path.join(config['logdir'], 'tsne')
+        os.makedirs(tsne_path, exist_ok=True)
+
+        images, intrinsics, extrinsics, labels, ood = next(iter(val_loader))
+        outs = model(images, intrinsics, extrinsics).detach().cpu()
+
+        if config['ood'] or config['three']:
+            labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
+            labels = torch.cat((labels, ood[:, None]), dim=1)
+
+        for i in range(config['batch_size']):
+            print("Fitting TSNE")
+            print(labels.shape)
+
+            feature_map = tsne.fit_transform(outs[i].view(n_classes, -1).transpose(0, 1))
+
+            if config['ood'] or config['three']:
+                l = torch.argmax(labels[i].view(n_classes+1, -1), dim=0).cpu().numpy()
+                f = scatter(feature_map, classes + ["ood"], l)
+            else:
+                l = torch.argmax(labels[i].view(n_classes, -1), dim=0).cpu().numpy()
+                f = scatter(feature_map, classes, l)
+
+            print(f"Saving TSNE plot at {os.path.join(tsne_path, str(i))}")
+            plt.savefig(os.path.join(tsne_path, str(i)))
+
+        model.tsne = False
+
+        print("Done!")
+
     os.makedirs(config['logdir'], exist_ok=True)
 
     predictions, ground_truths, oods, aleatoric, epistemic, raw = [], [], [], [], [], []
 
     with torch.no_grad():
         for images, intrinsics, extrinsics, labels, ood in tqdm(loader, desc="Running validation"):
+            if config['five']:
+                labels[ood.unsqueeze(1).repeat(1, 4, 1, 1) == 1] = 0
+                labels = torch.cat((labels, ood[:, None]), dim=1)
+            elif config['three']:
+                ood = labels[:, 0]
+                labels = labels[:, 1:]
+
             model.eval()
             model.training = False
 
@@ -73,7 +157,7 @@ def eval(config, is_ood, set, split, dataroot):
             raw.append(outs)
 
             if is_ood:
-                save_unc(model.epistemic(outs), ood, config['logdir'])
+                save_unc(model.epistemic(outs)/model.epistemic(outs).max(), ood, config['logdir'])
             else:
                 save_unc(model.aleatoric(outs), model.activate(outs).argmax(dim=1) != labels.argmax(dim=1),
                          config['logdir'])
@@ -100,7 +184,12 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--ood', default=False, action='store_true')
     parser.add_argument('-m', '--metric', default="rocpr", required=False)
     parser.add_argument('-r', '--save', default=False, action='store_true')
+    parser.add_argument('--num_workers', required=False, type=int)
     parser.add_argument('--set', default="val", required=False, type=str)
+    parser.add_argument('-t', '--tsne', default=False, action='store_true')
+    parser.add_argument('--five', default=False, action='store_true')
+    parser.add_argument('--three', default=False, action='store_true')
+    parser.add_argument('--pseudo', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -126,6 +215,7 @@ if __name__ == "__main__":
     print(f"ECE: {ece:.3f}")
     print(f"IOU: {iou}")
     print(f"Brier: {brier:.3f}")
+    print(f"Mean epis: {epistemic.mean()}")
 
     if args.save:
         torch.save(predictions, os.path.join(config['logdir'], 'prediction.pt'))
@@ -137,7 +227,8 @@ if __name__ == "__main__":
 
     if is_ood:
         uncertainty_scores = epistemic.squeeze(1)
-        uncertainty_labels = oods
+        uncertainty_labels = oods.bool()
+        print("EVAL OOD")
     else:
         uncertainty_scores = aleatoric.squeeze(1)
         uncertainty_labels = torch.argmax(ground_truth, dim=1).cpu() != torch.argmax(predictions, dim=1).cpu()

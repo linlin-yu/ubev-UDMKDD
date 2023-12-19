@@ -1,6 +1,10 @@
 from models.model import Model
 from tools.loss import *
 from tools.uncertainty import *
+from tools.geometry import *
+
+import cv2
+import matplotlib.pyplot as plt
 
 
 class Evidential(Model):
@@ -9,6 +13,8 @@ class Evidential(Model):
 
         self.beta_lambda = 0.001
         self.ood_lambda = 0.1
+        self.scale = 'none'
+        self.k = 4
 
         print(f"BETA LAMBDA: {self.beta_lambda}")
 
@@ -60,11 +66,31 @@ class Evidential(Model):
         if self.beta_lambda > 0:
             A += entropy_reg(alpha, beta_reg=self.beta_lambda)
 
-        A = A[(1 - ood).unsqueeze(1).bool()].mean()
+        if self.scale == 'dist':
+            r = dist_true(ood).to(self.device)[:, None]
+            scf = torch.where(r < 10, self.k, 1)
+            A *= scf
+            # cv2.imwrite(
+            #     'test_dist.png',
+            #     cv2.cvtColor((255 * plt.cm.inferno((scf[0,0]/scf[0,0].max()).cpu().numpy())).astype(np.uint8), cv2.COLOR_RGB2BGR)
+            # )
+            #
+            # cv2.imwrite("ood.png", 255 * (ood[0]).cpu().numpy())
+        elif self.scale == 'vac':
+            scf = 1 + (self.epistemic(alpha).detach() * self.k)
+            A *= scf
+            # cv2.imwrite(
+            #     'test_vac.png',
+            #     cv2.cvtColor((255 * plt.cm.inferno((scf[0,0]/scf[0,0].max()).cpu().numpy())).astype(np.uint8), cv2.COLOR_RGB2BGR)
+            # )
+            # 
+            # cv2.imwrite("ood.png", 255 * (ood[0]).cpu().numpy())
 
         oreg = ood_reg(alpha, ood) * self.ood_lambda
 
-        A += oreg * self.ood_lambda
+        A = A[(1 - ood).unsqueeze(1).bool()].mean()
+
+        A += oreg
 
         return A, oreg
 
@@ -83,6 +109,10 @@ class Evidential(Model):
         return outs, preds, loss, oodl
 
     def forward(self, images, intrinsics, extrinsics, limit=None):
+        if self.tsne:
+            print("Returning intermediate")
+            return self.backbone(images, intrinsics, extrinsics)
+
         evidence = self.backbone(images, intrinsics, extrinsics).relu()
 
         if limit is not None:

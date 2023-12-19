@@ -1,0 +1,14 @@
+none:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/carla/fiery_evidential_focal/19.pt'
+  label: "UFocal No regularization"
+
+reg:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/aug/none_focal/16.pt'
+  label: "UFocal OOD Regularization"
+
+vac:
+  config: 'configs/eval_carla_fiery_evidential.yaml'
+  path: 'outputs/aug/vac_focal_128/16.pt'
+  label: "UFocal OOD Regularization + Vacuity"

@@ -47,6 +47,7 @@ def train():
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
         ood=config['ood'] or config['five'],
+        pseudo=True
     )
 
     model = models[config['type']](
@@ -86,6 +87,14 @@ def train():
 
     if 'ol' in config:
         model.ood_lambda = config['ol']
+
+    if 'k' in config:
+        model.k = config['k']
+        print(f"Scaling with {model.scale}")
+
+    if 'scale' in config:
+        model.scale = config['scale']
+        print(f"Scaling with {model.scale} @ k={model.k}")
 
     if config['ood']:
         print(f"OOD LAMBDA: {model.ood_lambda}")
@@ -155,14 +164,67 @@ def train():
 
         model.eval()
 
-        predictions, ground_truth, oods, aleatoric, epistemic = run_loader(model, val_loader, config)
+        predictions, ground_truth, oods, aleatoric, epistemic, raw = run_loader(model, val_loader, config)
 
         iou = get_iou(predictions, ground_truth)
 
         for i in range(0, n_classes):
-            writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)
+            writer.add_scalar(f'val/{classes[i]}_iou', iou[i], epoch)\
 
         print(f"Validation mIOU: {iou}")
+
+        if config['ood'] or config['three']:
+            batch_size = 32
+            n_samples = len(raw)
+            val_loss_total = 0
+            oodl_total = 0
+
+            for i in range(0, n_samples, batch_size):
+                raw_batch = raw[i:i + batch_size].to(model.device)
+                ground_truth_batch = ground_truth[i:i + batch_size].to(model.device)
+                oods_batch = oods[i:i + batch_size].to(model.device)
+
+                val_loss, oodl = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
+
+                val_loss_total += val_loss
+                oodl_total += oodl
+
+            val_loss = val_loss_total / (n_samples / batch_size)
+            oodl = oodl_total / (n_samples / batch_size)
+
+            writer.add_scalar('val/ood_loss', oodl, epoch)
+            writer.add_scalar(f"val/loss", val_loss, epoch)
+            writer.add_scalar(f"val/uce_loss", val_loss-oodl, epoch)
+
+            uncertainty_scores = epistemic[:200].squeeze(1)
+            uncertainty_labels = oods[:200].bool()
+            fpr, tpr, rec, pr, auroc, aupr, _ = roc_pr(uncertainty_scores, uncertainty_labels)
+            writer.add_scalar(f"val/ood_auroc", auroc, epoch)
+            writer.add_scalar(f"val/ood_aupr", aupr, epoch)
+
+            print(f"Validation OOD: AUPR={aupr}, AUROC={auroc}")
+        else:
+            batch_size = 32
+            n_samples = len(raw)
+            val_loss_total = 0
+
+            for i in range(0, n_samples, batch_size):
+                raw_batch = raw[i:i + batch_size].to(model.device)
+                ground_truth_batch = ground_truth[i:i + batch_size].to(model.device)
+                oods_batch = oods[i:i + batch_size].to(model.device)
+
+                val_loss = model.loss_ood(raw_batch, ground_truth_batch, oods_batch)
+
+                val_loss_total += val_loss
+
+            val_loss = val_loss_total / (n_samples / batch_size)
+
+        writer.add_scalar(f"val/loss", val_loss, epoch)
+
+        if oodl is not None:
+            print(f"Validation loss: {val_loss}, OOD Reg.: {oodl}")
+        else:
+            print(f"Validation loss: {val_loss}")
 
         model.save(os.path.join(config['logdir'], f'{epoch}.pt'))
 
@@ -183,6 +245,8 @@ if __name__ == "__main__":
     parser.add_argument('--ol', required=False, type=float)
     parser.add_argument('--five', default=False, action='store_true')
     parser.add_argument('--three', default=False, action='store_true')
+    parser.add_argument('--scale', required=False, type=str)
+    parser.add_argument('--k', required=False, type=float)
 
     args = parser.parse_args()
 
